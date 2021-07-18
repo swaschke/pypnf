@@ -1,0 +1,17 @@
+/env/
+/.idea
+__pycache__/
+
+# Compiled python modules.
+*.pyc
+
+requirements.txt
+
+# ignore files containing 'dev-'
+*dev-*
+
+# Setuptools distribution folder.
+/dist/
+
+# Python egg metadata, regenerated from source files by setuptools.
+/*.egg-info
