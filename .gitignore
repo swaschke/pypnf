@@ -5,7 +5,7 @@ __pycache__/
 # Compiled python modules.
 *.pyc
 
-requirements.txt
+*.txt
 
 # ignore files containing 'dev-'
 *dev-*
