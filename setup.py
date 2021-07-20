@@ -20,9 +20,9 @@ setup(
     classifiers=['Development Status :: 4 - Beta',
                  'Programming Language :: Python :: 3.9',
                  'License :: OSI Approved :: GNU General Public License v2 (GPLv2)',
-                 'Operating System:: OS Independent',
+                 'Operating System :: OS Independent',
                  'Topic :: Office/Business :: Financial'
                  ],
-    install_requires=[ 'numpy>=1.11', 'tabulate>=0.8.9'],
+    install_requires=['numpy>=1.11', 'tabulate>=0.8.9'],
     python_requires='>=3.6',
 )
