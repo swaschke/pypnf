@@ -405,7 +405,7 @@ class PointFigureChart(object):
         Determines the first box and trend
         """
 
-        if self.method == 'cl':
+        if self.method == 'cl' or self.method == 'ohlc':
             H = self.ts['close']
             L = self.ts['close']
         else:
@@ -452,12 +452,12 @@ class PointFigureChart(object):
         fB = 1  # number of filled Boxes
         box = Boxes[iB]
 
-        # iTS = k - 1  # index of first entry in pftseries
+        iD = k - 1  # index of date with first entry
 
         if TF == 0:
             raise ValueError('Choose a smaller box size. There is no trend using the current parameter.')
 
-        return box, iB, iC, TF, fB
+        return iD, box, iB, iC, TF, fB
 
     def _basic(self, P, iB, iC, TF, fB):
         """
@@ -536,7 +536,7 @@ class PointFigureChart(object):
 
         return Box, iB, iC, TF, fB
 
-    def _close(self, Box, iB, iC, TF, fB):
+    def _close(self, iD, Box, iB, iC, TF, fB):
         """
         logic for point and figure charts based on closing prices
         """
@@ -544,15 +544,21 @@ class PointFigureChart(object):
         C = self.ts['close']
 
         ts = np.zeros([np.size(C), 5])
-        ts[0, :] = [Box, iB, iC, TF, fB]
+
+        # make the first entry right before the first change
+        # otherwise filled boxes can be not correctly determined
+        # in next iteration.
+        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+
+        C = C[iD:]
 
         for n, C in enumerate(C):
             [Box, iB, iC, TF, fB] = self._basic(C, iB, iC, TF, fB)
-            ts[n, :] = [Box, iB, iC, TF, fB]
+            ts[iD+n, :] = [Box, iB, iC, TF, fB]
 
         return ts
 
-    def _hilo(self, Box, iB, iC, TF, fB):
+    def _hilo(self, iD, Box, iB, iC, TF, fB):
         """
         logic for point and figure charts adapting the high/low method
         """
@@ -564,9 +570,13 @@ class PointFigureChart(object):
         reversal = self.reversal
 
         ts = np.zeros([np.size(H), 5])
-        ts[0, :] = [Box, iB, iC, TF, fB]
 
-        for n in range(1, np.size(H)):
+        # make the first entry right before the first change
+        # otherwise filled boxes can be not correctly determined
+        # in next iteration.
+        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+
+        for n in range(iD, np.size(H)):
 
             iBp = iB  # Box index from previous iteration
             fBp = fB  # number of filled Boxes from previous iteration
@@ -625,7 +635,7 @@ class PointFigureChart(object):
 
         return ts
 
-    def _lohi(self, Box, iB, iC, TF, fB):
+    def _lohi(self, iD, Box, iB, iC, TF, fB):
         """
         logic for point and figure charts adapting the low/high method
         """
@@ -636,9 +646,13 @@ class PointFigureChart(object):
         reversal = self.reversal
 
         ts = np.zeros([np.size(H), 5])
-        ts[0, :] = [Box, iB, iC, TF, fB]
 
-        for n in range(1, np.size(H)):
+        # make the first entry right before the first change
+        # otherwise filled boxes can be not correctly determined
+        # in next iteration.
+        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+
+        for n in range(iD, np.size(H)):
 
             iBp = iB  # Box index from previous iteration
             fBp = fB  # number of filled Boxes from previous iteration
@@ -693,7 +707,7 @@ class PointFigureChart(object):
 
         return ts
 
-    def _hlc(self, Box, iB, iC, TF, fB):
+    def _hlc(self, iD, Box, iB, iC, TF, fB):
         """
         logic for point and figure charts adapting the high/low/close method
         """
@@ -706,9 +720,13 @@ class PointFigureChart(object):
         reversal = self.reversal
 
         ts = np.zeros([np.size(H), 5])
-        ts[0, :] = [Box, iB, iC, TF, fB]
 
-        for n in range(1, np.size(H)):
+        # make the first entry right before the first change
+        # otherwise filled boxes can be not correctly determined
+        # in next iteration.
+        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+
+        for n in range(iD, np.size(H)):
 
             iBp = iB  # Box index from previous iteration
             fBp = fB  # number of filled Boxes from previous iteration
@@ -768,7 +786,7 @@ class PointFigureChart(object):
 
         return ts
 
-    def _ohlc(self, Box, iB, iC, TF, fB):
+    def _ohlc(self):
         """
         logic for point and figure charts adapting the open/high/low/close method
         """
@@ -785,36 +803,62 @@ class PointFigureChart(object):
         # elif TF == -1:
         #      P[0:4] = [O[0], H[0], L[0], C[0]]
 
-        ts = np.zeros([np.size(P), 5])
-        ts[0, :] = [Box, iB, iC, TF, fB]
-
         tP = []
         counter = 0
         for n in range(counter, np.size(C)):
 
             if C[n] > O[n]:
                 tP = [O[n], L[n], H[n], C[n]]
+
             elif C[n] < O[n]:
                 tP = [O[n], H[n], L[n], C[n]]
+
             elif C[n] == O[n] and C[n] == L[n]:
                 tP = [O[n], H[n], L[n], C[n]]
+
             elif C[n] == O[n] and C[n] == H[n]:
                 tP = [O[n], L[n], H[n], C[n]]
+
             elif C[n] == O[n] and (H[n] + L[n]) / 2 > C[n]:
                 tP = [O[n], H[n], L[n], C[n]]
+
             elif C[n] == O[n] and (H[n] + L[n]) / 2 < C[n]:
                 tP = [O[n], L[n], H[n], C[n]]
+
             elif C[n] == O[n] and (H[n] + L[n]) / 2 == C[n]:
-                if TF == 1:
+
+                if n > 1:
+                    # if trend is uptrend
+                    if C[n-1] < C[n]:
+                        tP = [O[n], H[n], L[n], C[n]]
+
+                    # downtrend
+                    elif C[n-1] > C[n]:
+                        tP = [O[n], L[n], H[n], C[n]]
+
+                else:
                     tP = [O[n], H[n], L[n], C[n]]
-                elif TF == -1:
-                    tP = [O[n], L[n], H[n], C[n]]
 
             P[counter:counter + 4] = tP
 
             counter += 4
 
-        for n in range(1, len(P)):
+        # store initial close values temporary
+        close = self.ts['close'].copy()
+
+        # set the new time-series as close
+        self.ts['close'] = P
+
+        # determine the fist box entry
+        [iD, Box, iB, iC, TF, fB] = self.get_firstbox()
+
+        # restore initial close
+        self.ts['close'] = close
+
+        ts = np.zeros([np.size(P), 5])
+        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+
+        for n in range(iD, len(P)):
             [Box, iB, iC, TF, fB] = self._basic(P[n], iB, iC, TF, fB)
             ts[n, :] = [Box, iB, iC, TF, fB]
 
@@ -830,22 +874,22 @@ class PointFigureChart(object):
         date = ts['date']
         pfdate = date.copy()
 
-        [Box, iB, iC, TF, fB] = self.get_firstbox()
+        [iD, Box, iB, iC, TF, fB] = self.get_firstbox()
 
         if self.method == 'cl':
-            ts = self._close(Box, iB, iC, TF, fB)
+            ts = self._close(iD, Box, iB, iC, TF, fB)
 
         elif self.method == 'h/l':
-            ts = self._hilo(Box, iB, iC, TF, fB)
+            ts = self._hilo(iD, Box, iB, iC, TF, fB)
 
         elif self.method == 'l/h':
-            ts = self._lohi(Box, iB, iC, TF, fB)
+            ts = self._lohi(iD, Box, iB, iC, TF, fB)
 
         elif self.method == 'hlc':
-            ts = self._hlc(Box, iB, iC, TF, fB)
+            ts = self._hlc(iD, Box, iB, iC, TF, fB)
 
         elif self.method == 'ohlc':
-            ts = self._ohlc(Box, iB, iC, TF, fB)
+            ts = self._ohlc()
 
             # reset the index and calculate missing datetimes
             if isinstance(self.ts['date'][0], np.datetime64):
@@ -1663,10 +1707,6 @@ if __name__ == '__main__':
     data = dataset('Set 1')
 
     pnf = PointFigureChart(ts=data, method='cl', reversal=3, boxsize=1, scaling='abs')    # set 1
-    # pnf = PointFigureChart(ts=data, method='l/h', reversal=3, boxsize=1, scaling='abs') # set 3
     pnf.get_trendlines(length=4, mode='strong')
 
     print(pnf)
-
-    # from pprint import pprint
-    # pprint(pnf.pnfts)
