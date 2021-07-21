@@ -30,9 +30,9 @@ symbol = 'AAPL'  # or 'MSFT'
 
 ts = dataset(symbol)
 
-PnF = PointFigureChart(ts=ts, method='cl', reversal=2, boxsize=5, scaling='abs', title=symbol)
+pnf = PointFigureChart(ts=ts, method='cl', reversal=2, boxsize=5, scaling='abs', title=symbol)
 
-print(PnF)
+print(pnf)
 ```
 
 ```
