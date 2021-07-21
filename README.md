@@ -1,7 +1,7 @@
 
-![logo](https://swaschke.github.com/images/logo.png)
+![logo](https://github.com/swaschke/pypnf/blob/main/images/logo.png)
 
-###A Python Package for Point & Figure Charting
+### A Python Package for Point & Figure Charting
 
 [![license](https://img.shields.io/github/license/swaschke/pypnf)](#license)
 [![Python Version](https://img.shields.io/pypi/pyversions/pypnf?style=flat)](https://pypi.org/project/pypnf/)
