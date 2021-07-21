@@ -58,4 +58,3 @@ def dataset(set):
         raise ValueError("Valid datasets are 'AAPL' and MSFT'." )
 
     return ts
-
