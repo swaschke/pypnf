@@ -36,7 +36,7 @@ def dataset(set):
         file = 'data/' + set + '.csv'
 
         file = pkg_resources.resource_filename('pypnf', file)
-        data = recfromcsv(file)
+        data = recfromcsv(file, encoding='utf-8')
 
         ts = {'date': [],
               'open': [],
