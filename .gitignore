@@ -4,7 +4,7 @@ __pycache__/
 
 # Compiled python modules.
 *.pyc
-/*.svg
+*.svg
 *.txt
 
 # ignore files containing 'dev-'
