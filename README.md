@@ -26,24 +26,36 @@ pip install pypnf
 from pypnf import PointFigureChart
 from pypnf import dataset
 
-ts = dataset('Set 1')
+symbol = 'AAPL'  # or 'MSFT'
 
-pnf = PointFigureChart(ts=ts,method='cl', reversal=3, boxsize=1, scaling='abs')
-print(pnf)
+ts = dataset(symbol)
+
+PnF = PointFigureChart(ts=ts, method='cl', reversal=2, boxsize=5, scaling='abs', title=symbol)
+
+print(PnF)
 ```
 
 ```
-Point & Figure (abs|cl) 1 x 3
----  -  -  -  -  -  ---
-117  .  .  .  .  X  117
-116  .  .  X  .  X  116
-115  X  .  X  O  X  115
-114  X  O  X  O  X  114
-113  X  O  X  O  .  113
-112  X  O  .  .  .  112
-111  X  .  .  .  .  111
----  -  -  -  -  -  ---
-printed 5/5 columns.
+Point & Figure (abs|cl) 5 x 2 | AAPL
+---  -  -  -  -  -  -  -  ---
+135  .  .  .  .  .  .  X  135
+130  .  .  X  .  .  .  X  130
+125  .  .  X  O  .  .  X  125
+120  .  .  X  O  X  .  X  120
+115  .  .  X  O  X  O  X  115
+110  .  .  X  O  .  O  .  110
+105  .  .  X  .  .  .  .  105
+100  .  .  X  .  .  .  .  100
+ 95  .  .  X  .  .  .  .   95
+ 90  .  .  X  .  .  .  .   90
+ 85  .  .  X  .  .  .  .   85
+ 80  X  .  X  .  .  .  .   80
+ 75  X  O  X  .  .  .  .   75
+ 70  .  O  X  .  .  .  .   70
+ 65  .  O  X  .  .  .  .   65
+ 60  .  O  .  .  .  .  .   60
+---  -  -  -  -  -  -  -  ---
+printed 7/7 columns.
 ```
 
 
