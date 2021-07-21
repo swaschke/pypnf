@@ -1,6 +1,7 @@
-# pyPnF
 
-A Python package for Point and Figure Charting
+![logo](https://swaschke.github.com/images/logo.png)
+
+###A Python Package for Point & Figure Charting
 
 [![license](https://img.shields.io/github/license/swaschke/pypnf)](#license)
 [![Python Version](https://img.shields.io/pypi/pyversions/pypnf?style=flat)](https://pypi.org/project/pypnf/)
@@ -63,16 +64,16 @@ import yfinance as yf
 symbol = 'AAPL'
 
 data = yf.Ticker(symbol)
-ts = data.history(start='2018-01-01', end='2020-06-30')
+ts = data.history(start='2018-01-01', end='2018-06-30')
 
 # reset index
 ts.reset_index(level=0, inplace=True)
 
 # convert pd.timestamp to string
-ts.date = ts.date.dt.strftime('%Y-%m-%d')
+ts['Date'] = ts['Date'].dt.strftime('%Y-%m-%d')
 
 # select required keys
-ts = ts[['date','open','high','low','close']]
+ts = ts[['Date','Open','High','Low','Close']]
 
 # convert DataFrame to dictionary
 ts = ts.to_dict('list')

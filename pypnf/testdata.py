@@ -20,6 +20,8 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import pkg_resources
+from numpy import recfromcsv
 """
 The testdata module contains different sets of testdata.
 """
@@ -29,10 +31,31 @@ def dataset(set):
     testdata
     """
 
-    if set == 'Set 1':
+    if set == 'AAPL' or 'MSFT':
 
-        close = [110, 111, 112, 111, 113, 115, 114, 112, 113, 114, 116, 114, 113, 115, 116, 117]
+        file = 'data/' + set + '.csv'
 
-        ts = {'close': close}
+        file = pkg_resources.resource_filename('pypnf', file)
+        data = recfromcsv(file)
+
+        ts = {'date': [],
+              'open': [],
+              'high': [],
+              'low':  [],
+              'close': [],
+              'volume': []}
+
+        for row in data:
+            ts['date'].append(row[0].astype(str))
+            ts['open'].append(row[1])
+            ts['high'].append(row[2])
+            ts['low'].append(row[3])
+            ts['close'].append(row[4])
+            ts['volume'].append(row[6])
+
+    else:
+
+        raise ValueError("Valid datasets are 'AAPL' and MSFT'." )
 
     return ts
+
