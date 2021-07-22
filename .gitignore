@@ -8,7 +8,7 @@ __pycache__/
 *.txt
 
 # ignore files containing 'dev-'
-*dev-*
+*dev_*
 
 # Setuptools distribution folder.
 /dist/
