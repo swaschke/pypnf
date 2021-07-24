@@ -6,7 +6,7 @@ with open('README.md', 'r') as fh:
 
 setup(
     name='pypnf',
-    version='0.0.3',
+    version='0.0.4',
     description='A Package for Point and Figure Charting',
     keywords=['Point and Figure', 'PnF', 'Sentiment Indicator'],
     long_description=long_description,
