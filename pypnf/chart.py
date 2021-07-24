@@ -146,6 +146,9 @@ class PointFigureChart(object):
         # signals
         self.breakouts = None
 
+        # indicator
+        self.indicator = {'midpoints': None}
+
     @staticmethod
     def _is_valid_method(method):
 
@@ -1611,6 +1614,216 @@ class PointFigureChart(object):
 
         return tlines
 
+    def _midpoints(self):
+
+        boxes = self.boxscale
+        mtx = self.matrix
+
+        points = np.zeros(np.size(mtx, 1))
+
+        for n in range(0, np.size(mtx, 1)):
+
+            column = mtx[:, n]
+            column = np.where(column != 0)[0]
+            column = boxes[column]
+
+            if self.method == 'log':
+
+                i = np.floor(np.size(column) / 2).astype(int) - 1
+
+                if i < (np.size(column) / 2) - 1:
+                    center_value = column[i + 1]
+                else:
+                    center_value = np.exp((np.log(column[i]) + np.log(column[i + 1])) / 2)
+
+            else:
+                i = np.floor(np.size(column) / 2).astype(int) - 1
+
+                if i < (np.size(column) / 2) - 1:
+                    center_value = column[i + 1]
+                else:
+                    center_value = column[i] + (column[i + 1] - column[i]) / 2
+
+            points[n] = center_value
+
+        self.indicator['midpoints'] = points
+
+        return points
+
+    def sma(self, period):
+
+        label = f'SMA({period})'
+
+        if self.indicator['midpoints'] is None:
+            values = self._midpoints()
+        else:
+            values = self.indicator['midpoints']
+
+        ma = np.zeros(len(values))
+        ma[:] = np.nan
+
+        if len(ma) >= period:
+
+            for n in range(period - 1, len(values)):
+                ma[n] = np.mean(values[n - period + 1:n + 1])
+
+        self.indicator[label] = ma
+
+        return ma
+
+    def ema(self, period):
+
+        label = f'EMA({period})'
+
+        if self.indicator['midpoints'] is None:
+            values = self._midpoints()
+        else:
+            values = self.indicator['midpoints']
+
+        ma = np.zeros(len(values))
+        ma[:] = np.nan
+
+        if len(ma) >= period:
+
+            ma[period - 1] = np.sum(values[0:period]) / period
+            k = 2 / (period + 1)
+
+            for n in range(period, len(values)):
+                ma[n] = k * (values[n] - ma[n - 1]) + ma[n - 1]
+
+        self.indicator[label] = ma
+
+        return ma
+
+    def bollinger(self, period, factor):
+
+        label = f'Bollinger({period},{factor})'
+
+        mtx = self.matrix
+
+        upper_band  = np.zeros(np.size(mtx, 1))
+        upper_band [:] = np.nan
+
+        bb_l = np.zeros(np.size(mtx, 1))
+        bb_l[:] = np.nan
+
+        std = np.zeros(np.size(mtx, 1))
+        std[:] = np.nan
+
+        ma = self.sma(period)
+        mp = self.indicator['midpoints']
+
+        if len(upper_band) >= period:
+
+            for n in range(period - 1, len(std)):
+                std[n] = np.std(mp[n - period + 1:n + 1])
+
+        upper_band = ma + factor * std
+        lower_band = ma - factor * std
+
+        self.indicator[label+'-upper'] = upper_band
+        self.indicator[label+'-lower'] = lower_band
+
+        return upper_band, lower_band
+
+    def psar(self, step, leap):
+
+        label = f'pSAR({step},{leap})'
+        boxes = self.boxscale
+        mtx = self.matrix
+
+        # check length her and leave function
+        if np.size(mtx, 1) <= 2:
+            psar = np.zeros(np.size(mtx, 1))
+            psar[:] = np.nan
+            self.indicator[label] = psar
+
+            return psar
+
+        mtx = [np.repeat([boxes], np.size(mtx, 1), axis=0)][0].transpose() * mtx
+        mtx = np.abs(mtx)
+
+        high = np.zeros(np.size(mtx, 1))
+        low = np.zeros(np.size(mtx, 1))
+
+        for n in range(0, np.size(mtx, 1)):
+            t = mtx[:, n]
+            high[n] = np.max(t)
+            t[t == 0] = np.max(t)
+            low[n] = np.min(mtx[:, n])
+
+        psar = np.zeros(np.size(high))
+        ep = np.zeros(np.size(high))
+        diff = np.zeros(np.size(high))
+        prod = np.zeros(np.size(high))
+        trendflag = np.zeros(np.size(high))
+        accFactor = np.zeros(np.size(high))
+        trendlength = np.zeros(np.size(high))
+        trendlength[0] = 1
+
+        if high[0] > high[2]:
+
+            psar[0] = high[0]
+            ep[0] = low[0]
+            trendflag[0] = -1
+
+        else:
+            psar[0] = low[0]
+            ep[0] = high[0]
+            trendflag[0] = 1
+
+        diff[0] = ep[0] - psar[0]
+        accFactor[0] = step
+        prod[0] = diff[0] * accFactor[0]
+
+        for n in range(1, np.size(high)):
+
+            if trendflag[n - 1] == 1 and prod[n - 1] + psar[n - 1] > low[n]:
+                psar[n] = ep[n - 1]
+            elif trendflag[n - 1] == -1 and prod[n - 1] + psar[n - 1] < high[n]:
+                psar[n] = ep[n - 1]
+            else:
+                psar[n] = psar[n - 1] + prod[n - 1]
+
+            if psar[n] < high[n]:
+                trendflag[n] = 1
+            elif psar[n] > low[n]:
+                trendflag[n] = -1
+
+            if trendflag[n] == 1 and high[n] > ep[n - 1]:
+                ep[n] = high[n]
+            elif trendflag[n] == 1 and high[n] <= ep[n - 1]:
+                ep[n] = ep[n - 1]
+            elif trendflag[n] == -1 and low[n] < ep[n - 1]:
+                ep[n] = low[n]
+            elif trendflag[n] == -1 and low[n] >= ep[n - 1]:
+                ep[n] = ep[n - 1]
+
+            if trendflag[n] == trendflag[n - 1]:
+                trendlength[n] = trendlength[n - 1] + 1
+                if accFactor[n - 1] == leap:
+                    accFactor[n] = leap
+                elif trendflag[n] == 1 and ep[n] > ep[n - 1]:
+                    accFactor[n] = accFactor[n - 1] + step
+                elif trendflag[n] == 1 and ep[n] <= ep[n - 1]:
+                    accFactor[n] = accFactor[n - 1]
+                elif trendflag[n] == -1 and ep[n] < ep[n - 1]:
+                    accFactor[n] = accFactor[n - 1] + step
+                elif trendflag[n] == -1 and ep[n] >= ep[n - 1]:
+                    accFactor[n] = accFactor[n - 1]
+            else:
+                accFactor[n] = step
+                trendlength[n] = 1
+
+            diff[n] = ep[n] - psar[n]
+            prod[n] = accFactor[n] * diff[n]
+
+        psar = psar * trendflag
+
+        self.indicator[label] = psar
+
+        return psar
+
     def __str__(self):
 
         mtx = self.matrix
@@ -1713,7 +1926,7 @@ if __name__ == '__main__':
 
     from testdata import dataset
 
-    data = dataset('Set 1')
+    data = dataset('AAPL')
 
     pnf = PointFigureChart(ts=data, method='cl', reversal=3, boxsize=1, scaling='abs')    # set 1
     pnf.get_trendlines(length=4, mode='strong')
