@@ -551,8 +551,7 @@ class PointFigureChart(object):
         # make the first entry right before the first change
         # otherwise filled boxes can be not correctly determined
         # in next iteration.
-        ts[0, :] = [Box, iB, iC, TF, fB]
-        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+        ts[0: iD, :] = [Box, iB, iC, TF, fB]
 
         C = C[iD:]
 
@@ -578,8 +577,7 @@ class PointFigureChart(object):
         # make the first entry right before the first change
         # otherwise filled boxes can be not correctly determined
         # in next iteration.
-        ts[0, :] = [Box, iB, iC, TF, fB]
-        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+        ts[0: iD, :] = [Box, iB, iC, TF, fB]
 
         for n in range(iD, np.size(H)):
 
@@ -655,8 +653,7 @@ class PointFigureChart(object):
         # make the first entry right before the first change
         # otherwise filled boxes can be not correctly determined
         # in next iteration.
-        ts[0, :] = [Box, iB, iC, TF, fB]
-        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+        ts[0: iD, :] = [Box, iB, iC, TF, fB]
 
         for n in range(iD, np.size(H)):
 
@@ -730,8 +727,7 @@ class PointFigureChart(object):
         # make the first entry right before the first change
         # otherwise filled boxes can be not correctly determined
         # in next iteration.
-        ts[0, :] = [Box, iB, iC, TF, fB]
-        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+        ts[0: iD, :] = [Box, iB, iC, TF, fB]
 
         for n in range(iD, np.size(H)):
 
@@ -805,11 +801,6 @@ class PointFigureChart(object):
 
         P = np.zeros(4 * np.size(C))
 
-        # if TF == 1:
-        #      P[0:4] = [O[0], L[0], H[0], C[0]]
-        # elif TF == -1:
-        #      P[0:4] = [O[0], H[0], L[0], C[0]]
-
         tP = []
         counter = 0
         for n in range(counter, np.size(C)):
@@ -864,8 +855,7 @@ class PointFigureChart(object):
 
         ts = np.zeros([np.size(P), 5])
 
-        ts[0, :] = [Box, iB, iC, TF, fB]
-        ts[iD-1, :] = [Box, iB, iC, TF, fB]
+        ts[0: iD, :] = [Box, iB, iC, TF, fB]
 
         for n in range(iD, len(P)):
             [Box, iB, iC, TF, fB] = self._basic(P[n], iB, iC, TF, fB)
@@ -930,9 +920,6 @@ class PointFigureChart(object):
         ic = np.logical_or(iBc, iTc)  # index of steps with changes
 
         ts[~ic, :] = np.nan  # set elements without action to NaN
-
-        ic = np.where(ts[:, 3] == 0)  # index with left zeros
-        ts[ic, :] = np.nan  # set elements with trend 0 to NaN
 
         # index values cant be integer because of the nans in the arrays.
         pftseries = {'date': pfdate,
