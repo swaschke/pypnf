@@ -31,7 +31,7 @@ from tabulate import tabulate
 from warnings import warn
 
 
-class PointFigureChart(object):
+class PointFigureChart:
     """ Class to build a Point and Figure Chart from time series data
 
     Required attributes:
@@ -145,9 +145,11 @@ class PointFigureChart(object):
 
         # signals
         self.breakouts = None
+        self.buys = {}
+        self.sells = {}
 
         # indicator
-        self.indicator = {'midpoints': None}
+        self.indicator = {}
 
     @staticmethod
     def _is_valid_method(method):
@@ -1602,6 +1604,9 @@ class PointFigureChart(object):
         return tlines
 
     def _midpoints(self):
+        """
+        Calculates the midpoints for every column of an Point and Figure Chart
+        """
 
         boxes = self.boxscale
         mtx = self.matrix
@@ -1638,10 +1643,12 @@ class PointFigureChart(object):
         return points
 
     def sma(self, period):
-
+        """
+         Calculates the simple moving average for every column of an Point and Figure Chart
+         """
         label = f'SMA({period})'
 
-        if self.indicator['midpoints'] is None:
+        if 'midpoints' not in self.indicator:
             values = self._midpoints()
         else:
             values = self.indicator['midpoints']
@@ -1659,10 +1666,12 @@ class PointFigureChart(object):
         return ma
 
     def ema(self, period):
-
+        """
+        Calculates the exponential moving average for every column of an Point and Figure Chart
+        """
         label = f'EMA({period})'
 
-        if self.indicator['midpoints'] is None:
+        if 'midpoints' not in self.indicator:
             values = self._midpoints()
         else:
             values = self.indicator['midpoints']
@@ -1683,13 +1692,16 @@ class PointFigureChart(object):
         return ma
 
     def bollinger(self, period, factor):
+        """
+        Calculates the bollinger bands for every column of an Point and Figure Chart
+        """
 
         label = f'Bollinger({period},{factor})'
 
         mtx = self.matrix
 
-        upper_band  = np.zeros(np.size(mtx, 1))
-        upper_band [:] = np.nan
+        upper_band = np.zeros(np.size(mtx, 1))
+        upper_band[:] = np.nan
 
         bb_l = np.zeros(np.size(mtx, 1))
         bb_l[:] = np.nan
@@ -1714,6 +1726,9 @@ class PointFigureChart(object):
         return upper_band, lower_band
 
     def psar(self, step, leap):
+        """
+        Calculates the parabolic Stop and Reverse (pSAR) for every column of an Point and Figure Chart
+        """
 
         label = f'pSAR({step},{leap})'
         boxes = self.boxscale
@@ -1810,6 +1825,68 @@ class PointFigureChart(object):
         self.indicator[label] = psar
 
         return psar
+
+    def multiple_top_buy(self, label, multiple):
+
+        max_width = 2 * multiple - 1
+
+        array = np.zeros(len(self.pnfts['box index']))
+        array[:] = np.nan
+
+        x = ((self.breakouts['trend'] == 1)
+             & (self.breakouts['width'] <= max_width)
+             & (self.breakouts['hits'] == multiple))
+
+        col = self.breakouts['column index'][x]
+        row = self.breakouts['box index'][x]
+
+        for r, c in zip(row, col):
+            col_idx = (self.pnfts['column index'] == c)
+            row_idx = self.pnfts['box index'][col_idx]
+            ts_idx = int(row_idx[row_idx >= r][0])
+            x = ((self.pnfts['box index'] == ts_idx) & (self.pnfts['column index'] == c))
+            array[x] = self.boxscale[r]
+
+            self.buys[label] = array
+
+    def multiple_bottom_sell(self, label, multiple):
+
+        max_width = 2 * multiple - 1
+
+        array = np.zeros(len(self.pnfts['box index']))
+        array[:] = np.nan
+
+        x = ((self.breakouts['trend'] == -1)
+             & (self.breakouts['width'] <= max_width)
+             & (self.breakouts['hits'] == multiple))
+
+        col = self.breakouts['column index'][x]
+        row = self.breakouts['box index'][x]
+
+        for r, c in zip(row, col):
+            col_idx = (self.pnfts['column index'] == c)
+            row_idx = self.pnfts['box index'][col_idx]
+            ts_idx = int(row_idx[row_idx <= r][0])
+            x = ((self.pnfts['box index'] == ts_idx) & (self.pnfts['column index'] == c))
+            array[x] = self.boxscale[r]
+
+            self.sells[label] = array
+
+    def double_top_buy(self):
+
+        self.multiple_top_buy(label='DTB', multiple=2)
+
+    def double_bottom_sell(self):
+
+        self.multiple_bottom_sell(label='DBS', multiple=2)
+
+    def triple_top_buy(self):
+
+        self.multiple_top_buy(label='TTB', multiple=3)
+
+    def triple_bottom_sell(self):
+
+        self.multiple_bottom_sell(label='TBS', multiple=3)
 
     def __str__(self):
 
@@ -1915,7 +1992,7 @@ if __name__ == '__main__':
 
     data = dataset('AAPL')
 
-    pnf = PointFigureChart(ts=data, method='cl', reversal=3, boxsize=1, scaling='abs')    # set 1
+    pnf = PointFigureChart(ts=data, method='cl', reversal=3, boxsize=1, scaling='abs')
     pnf.get_trendlines(length=4, mode='strong')
 
     print(pnf)
