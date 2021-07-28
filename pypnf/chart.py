@@ -329,7 +329,7 @@ class PointFigureChart:
 
         # define range for overscan. If no value is given take the reversal
         if overscan is None:
-            overscan = self.reversal
+            overscan = 20  # self.reversal
             
         if type(overscan) == int:
             overscan_bot = overscan
@@ -341,15 +341,17 @@ class PointFigureChart:
         # make scale for absolute scaling
         if self.scaling == 'abs':
 
+            decimals = len(str(self.boxsize).split(".")[-1])
+
             boxes = np.array(np.float64([0]))
-            boxsize = np.float64(self.boxsize)
+            boxsize = np.round(np.float64(self.boxsize), decimals)
 
             while boxes[0] <= minimum - (overscan_bot + 1) * boxsize:
-                boxes[0] = boxes[0] + boxsize
+                boxes[0] = np.round(boxes[0] + boxsize, decimals)
 
             n = 0
             while boxes[n] <= maximum + (overscan_top - 1) * boxsize:
-                boxes = np.append(boxes, boxes[n] + boxsize)
+                boxes = np.append(boxes, np.round(boxes[n] + boxsize, decimals))
                 n += 1
 
         # make scale for logarithmic scaling
