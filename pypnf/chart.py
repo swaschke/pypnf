@@ -1828,6 +1828,74 @@ class PointFigureChart:
 
         return psar
 
+    def next_simple_signal(self):
+
+        next_buy = np.nan
+        next_sell = np.nan
+
+        # last trend need to be identified from pnfts
+        idx = np.where(~np.isnan(self.pnfts['trend']))[0][-1]
+
+        last_trend = int(self.pnfts['trend'][idx])
+
+        if np.shape(self.matrix)[1] >= 3:
+
+            mtx = self.matrix.copy()
+            mtx = mtx[:, -3:]
+
+            x_col_1 = np.where(mtx[:, 0] == 1)[0]
+            x_col_2 = np.where(mtx[:, 1] == 1)[0]
+            x_col_3 = np.where(mtx[:, 2] == 1)[0]
+
+            o_col_1 = np.where(mtx[:, 0] == -1)[0]
+            o_col_2 = np.where(mtx[:, 1] == -1)[0]
+            o_col_3 = np.where(mtx[:, 2] == -1)[0]
+
+            if last_trend == 1:
+
+                if np.any(x_col_2):
+                    idx = x_col_2[-1]
+                else:
+                    idx = x_col_1[-1]
+
+                if idx + 1 > x_col_3[-1]:
+                    # if idx  > x_col_3[-1]:
+                    next_buy = self.boxscale[idx + 1]
+                else:
+                    next_buy = np.nan
+
+                if np.any(o_col_3):
+                    idx = o_col_3[0]
+                else:
+                    idx = o_col_2[0]
+
+                next_sell = self.boxscale[idx - 1]
+
+            elif last_trend == -1:
+
+                if np.any(o_col_2):
+                    idx = o_col_2[0]
+                else:
+                    idx = o_col_1[0]
+
+                if idx - 1 < o_col_3[0]:
+                    # if idx < o_col_3[0]:
+                    next_sell = self.boxscale[idx - 1]
+                else:
+                    next_sell = np.nan
+
+                if np.any(x_col_3):
+                    idx = x_col_3[-1]
+                else:
+                    idx = x_col_2[-1]
+
+                next_buy = self.boxscale[idx + 1]
+
+        # print('Next Buy: ', next_buy)
+        # print('Next Sell: ', next_sell)
+
+        return next_buy, next_sell
+
     def multiple_top_buy(self, label, multiple):
 
         max_width = 2 * multiple - 1
@@ -1996,5 +2064,6 @@ if __name__ == '__main__':
 
     pnf = PointFigureChart(ts=data, method='cl', reversal=3, boxsize=1, scaling='abs')
     pnf.get_trendlines(length=4, mode='strong')
+    print(pnf.next_simple_signal())
 
     print(pnf)
