@@ -51,7 +51,7 @@ def dataset(set):
             ts['high'].append(row[2])
             ts['low'].append(row[3])
             ts['close'].append(row[4])
-            ts['volume'].append(row[6])
+            ts['volume'].append(row[5])
 
     else:
 
