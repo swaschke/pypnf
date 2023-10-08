@@ -58,6 +58,21 @@ Point & Figure (abs|cl) 5 x 2 | AAPL
 printed 7/7 columns.
 ```
 
+##### Plotting Point&Figure Charts
+
+```python
+from pypnf import PointFigureChart
+from testdata import dataset
+
+data = dataset('^SPX')
+
+pnf = PointFigureChart(ts=data, method='h/l', reversal=2, boxsize=50, scaling='abs', title='^SPX')
+pnf.bollinger(5, 2)
+pnf.donchian(8,2)
+pnf.psar(0.02, 0.2)
+pnf.show()
+```
+![chart](https://github.com/swaschke/pypnf/blob/main/images/chart.png)
 
 #### Quickstart using time-series data loaded via the external package yfinance
 

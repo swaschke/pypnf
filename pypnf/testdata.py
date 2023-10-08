@@ -31,7 +31,7 @@ def dataset(set):
     testdata
     """
 
-    if set == 'AAPL' or 'MSFT':
+    if set == 'AAPL' or 'MSFT' or '^SPX':
 
         file = 'data/' + set + '.csv'
 
@@ -55,6 +55,6 @@ def dataset(set):
 
     else:
 
-        raise ValueError("Valid datasets are 'AAPL' and MSFT'." )
+        raise ValueError("Valid datasets are 'AAPL' and MSFT' and '^SPX'." )
 
     return ts

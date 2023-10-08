@@ -6,7 +6,7 @@ with open('README.md', 'r') as fh:
 
 setup(
     name='pypnf',
-    version='0.0.5',
+    version='0.0.6',
     description='A Package for Point and Figure Charting',
     keywords=['Point and Figure', 'PnF', 'Sentiment Indicator'],
     long_description=long_description,
@@ -27,6 +27,6 @@ setup(
                  'Operating System :: OS Independent',
                  'Topic :: Office/Business :: Financial'
                  ],
-    install_requires=['numpy>=1.20', 'tabulate>=0.8.9'],
+    install_requires=['numpy>=1.20', 'matplotlib>=3.7', 'tabulate>=0.8.9'],
     python_requires='>=3.6',
 )
