@@ -57,18 +57,21 @@ class PointFigureChart:
         methods implemented: 'cl', 'h/l', 'l/h', 'hlc', 'ohlc' default('cl')
     boxscaling: str
         scales implemented:
-            'abs', 'cla', 'log' default('log')
+            'abs', 'atr', 'cla', 'log' default('log')
         abs:
             absolute scaling with fixed box sizes.
+        atr:
+            absolute scaling with atr of last n periods
         log:
             logarithmic scaling with variable box sizes.
         cla:
             classic scaling with semi-variable box sizes.
-    boxsize: int/float
+    boxsize: int/float/string
         Size of boxes with regards to the respective scaling default (1).
         Implemented box sizes for classic scaling are 0.02, 0.05, 0.1, 0.25, 1/3, 0.5, 1, 2.
         For classic scaling the box size serves as factor to scale the original scale.
         The minimum boxsize for logarithmic scaling is 0.01%.
+        For atr scaling the number of last n periods to calculate from, 'total' for all periods.
     title: str
         user defined label for the chart default(None)
         label will be created inside the class.
@@ -248,8 +251,8 @@ class PointFigureChart:
     @staticmethod
     def _is_valid_scaling(scaling):
 
-        if scaling not in ['abs', 'log', 'cla']:
-            raise ValueError("Not a valid scaling. Valid scales are: abs, log, cla")
+        if scaling not in ['abs', 'log', 'cla', 'atr']:
+            raise ValueError("Not a valid scaling. Valid scales are: abs, log, cla and atr")
 
         return scaling
 
@@ -270,7 +273,16 @@ class PointFigureChart:
         elif self.scaling == 'abs':
             if boxsize < 0:
                 raise ValueError('ValueError: The boxsize must be a value greater than 0.')
+                
+        elif self.scaling == 'atr':
+            if boxsize != 'total' and int(boxsize) != boxsize:
+                raise ValueError('ValueError: The boxsize must be a integer of periods or \'total\' for atr box scaling.')
+                
+            if boxsize != 'total' and boxsize < 0:
+                raise ValueError('ValueError: The boxsize must be a value greater than 0.')
+            
 
+            
         return boxsize
 
     def _make_title(self, title):
@@ -283,7 +295,7 @@ class PointFigureChart:
             elif self.scaling == 'cla':
                 title = f'Point & Figure ({self.scaling}|{self.method}) {self.boxsize}@50 x {self.reversal}'
 
-            elif self.scaling == 'abs':
+            elif self.scaling == 'abs' or self.scaling == 'atr':
                 title = f'Point & Figure ({self.scaling}|{self.method}) {self.boxsize} x {self.reversal}'
 
         else:
@@ -294,7 +306,7 @@ class PointFigureChart:
             elif self.scaling == 'cla':
                 title = f'Point & Figure ({self.scaling}|{self.method}) {self.boxsize}@50 x {self.reversal} | {title}'
 
-            elif self.scaling == 'abs':
+            elif self.scaling == 'abs' or self.scaling == 'atr':
                 title = f'Point & Figure ({self.scaling}|{self.method}) {self.boxsize} x {self.reversal} | {title}'
 
         return title
@@ -306,7 +318,7 @@ class PointFigureChart:
 
         # bring all keys to lowercase characters
         ts = {key.lower(): val for key, val in ts.items()}
-
+        
         # check if all required keys are available
         if self.method == 'cl':
 
@@ -332,7 +344,7 @@ class PointFigureChart:
             if 'high' not in ts:
                 raise KeyError("The required key 'high' was not found in ts")
 
-        elif self.method == 'ohlc':
+        elif self.method == 'ohlc' or self.scaling == 'atr':
 
             if 'close' not in ts:
                 raise KeyError("The required key 'close' was not found in ts")
@@ -345,7 +357,11 @@ class PointFigureChart:
 
             if 'open' not in ts:
                 raise KeyError("The required key 'open' was not found in ts")
-
+                
+        if self.scaling == 'atr':
+            if self.boxsize != 'total' and self.boxsize + 1 > len(ts['close']):
+                raise IndexError("ATR boxsize is larger than length of data.")
+                
         # bring all inputs to the final format as dict with numpy.ndarrays.
         for key in ts.keys():
             if isinstance(ts[key], list):
@@ -426,8 +442,23 @@ class PointFigureChart:
             overscan_top = overscan[1]
 
         # make scale for absolute scaling
-        if self.scaling == 'abs':
-
+        if self.scaling == 'abs' or self.scaling == 'atr':
+            if self.scaling == 'atr':
+                
+                # Calculate components of the True Range
+                p = self.boxsize == 'total' and len(self.ts['close'])-1 or self.boxsize
+                high_low = self.ts['high'][-p:] - self.ts['low'][-p:]
+                high_close_prev = np.abs(self.ts['high'][-p:] - self.ts['close'][-p-1:-1])
+                low_close_prev = np.abs(self.ts['low'][-p:] - self.ts['close'][-p-1:-1])
+                
+                # Combine and find the maximum for each day to get the True Range, excluding the first day due to shift
+                true_range = np.maximum(np.maximum(high_low, high_close_prev), low_close_prev)
+                
+                # Calculate a single average value for the True Range, to be used as the box size
+                self.boxsize = np.mean(true_range)
+                
+                self.scaling = 'abs'
+                
             decimals = len(str(self.boxsize).split(".")[-1])
 
             boxes = np.array(np.float64([0]))
