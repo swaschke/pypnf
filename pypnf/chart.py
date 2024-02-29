@@ -344,7 +344,7 @@ class PointFigureChart:
             if 'high' not in ts:
                 raise KeyError("The required key 'high' was not found in ts")
 
-        elif self.method == 'ohlc' or self.scaling == 'atr':
+        elif self.method == 'ohlc':
 
             if 'close' not in ts:
                 raise KeyError("The required key 'close' was not found in ts")
@@ -359,6 +359,16 @@ class PointFigureChart:
                 raise KeyError("The required key 'open' was not found in ts")
                 
         if self.scaling == 'atr':
+
+            if 'close' not in ts:
+                raise KeyError("The required key 'close' was not found in ts")
+
+            if 'low' not in ts:
+                raise KeyError("The required key 'low' was not found in ts")
+
+            if 'high' not in ts:
+                raise KeyError("The required key 'high' was not found in ts")
+
             if self.boxsize != 'total' and self.boxsize + 1 > len(ts['close']):
                 raise IndexError("ATR boxsize is larger than length of data.")
                 
