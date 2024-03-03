@@ -1768,7 +1768,7 @@ class PointFigureChart:
         else:
             values = self.column_midpoints
 
-        ma = np.zeros(len(values))
+        ma = np.zeros(np.size(self.matrix,1))
         ma[:] = np.nan
 
         if len(ma) >= period:
@@ -1792,7 +1792,7 @@ class PointFigureChart:
         else:
             values = self.column_midpoints
 
-        ma = np.zeros(len(values))
+        ma = np.zeros(np.size(self.matrix,1))
         ma[:] = np.nan
 
         if len(ma) >= period:
@@ -2137,7 +2137,7 @@ class PointFigureChart:
         scaling = self.scaling
 
         if scaling == 'log':
-            base = 1 + pnf.boxsize / 100
+            base = 1 + self.boxsize / 100
 
         for num, val in enumerate(array):
 
@@ -2599,17 +2599,11 @@ class PointFigureChart:
                 x2 = x1 - width
                 self.ax2.plot((x1, x2), (y, y), color=self.bearish_breakout_color, lw=self.marker_linewidth)
 
-    def _plot_indicator(self):
-        """
-        Plots applied indicator to the PointFigureChart figure
-        """
-
-        # calculate x coordinates for indicator
-        x_coordinates = np.arange(np.shape(self.plot_matrix)[1]) + 0.5
+    def _get_indicator_keys(self):
 
         indicator_keys = []
 
-        for key in self.plot_indicator.keys():
+        for key in self.indicator.keys():
 
             if 'Bollinger' in key:
                 if 'upper' in key:
@@ -2624,6 +2618,18 @@ class PointFigureChart:
 
             elif not 'Bollinger' in key and not 'Donchian' in key and not 'pSAR' in key:
                 indicator_keys.append(key)
+
+        return indicator_keys
+
+    def _plot_indicator(self):
+        """
+        Plots applied indicator to the PointFigureChart figure
+        """
+
+        # calculate x coordinates for indicator
+        x_coordinates = np.arange(np.shape(self.plot_matrix)[1]) + 0.5
+
+        indicator_keys = self._get_indicator_keys()
 
         color_index = 0
         legend_entries = []
@@ -2850,6 +2856,7 @@ class PointFigureChart:
 
 
 if __name__ == '__main__':
+
     from testdata import dataset
 
     data = dataset('^SPX')
@@ -2858,4 +2865,3 @@ if __name__ == '__main__':
     pnf.get_trendlines(length=4, mode='weak')
     pnf.show_trendlines = 'external'
     pnf.show()
-
