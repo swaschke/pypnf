@@ -2178,7 +2178,7 @@ class PointFigureChart:
         scaling = self.scaling
 
         if scaling == 'log':
-            base = 1 + pnf.boxsize / 100
+            base = 1 + self.boxsize / 100
 
         for num, val in enumerate(array):
 
