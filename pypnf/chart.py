@@ -134,13 +134,14 @@ class PointFigureChart:
         self.boxsize = self._is_valid_boxsize(boxsize)
 
         # prepare timeseries
-        self.time_step = None  # to be calculated in _prepare_ts
+        self.time_step = None  # calculated in _prepare_ts: 'm','D', None
         self.ts = self._prepare_ts(ts)
 
         # chart
         self.title = self._make_title(title)
         self.boxscale = self._get_boxscale()
         self.pnf_timeseries = self._get_pnf_timeseries()
+        self.action_index_matrix = None  # assigned in _pnf_timeseries2matrix()
         self.matrix = self._pnf_timeseries2matrix()
         self.column_labels = self._get_column_entry_dates()
 
@@ -280,9 +281,7 @@ class PointFigureChart:
                 
             if boxsize != 'total' and boxsize < 0:
                 raise ValueError('ValueError: The boxsize must be a value greater than 0.')
-            
 
-            
         return boxsize
 
     def _make_title(self, title):
@@ -1091,6 +1090,7 @@ class PointFigureChart:
         ts = self.pnf_timeseries
         boxes = self.boxscale
 
+        iTS = np.arange(len(ts['box index']))
         iB = ts['box index'].copy()
         iC = ts['column index'].copy()
         TF = ts['trend'].copy()
@@ -1101,14 +1101,18 @@ class PointFigureChart:
         iB = iB[~iNaN].astype(int)
         iC = iC[~iNaN].astype(int)
         TF = TF[~iNaN].astype(int)
+        iTS = iTS[~iNaN]
 
         mtx = np.zeros([np.size(boxes), iC[-1] + 1], dtype=int)
+        self.action_index_matrix = np.zeros([np.size(boxes), iC[-1] + 1], dtype=int)
 
         # mark first box
         if TF[0] == 1:
             mtx[iB[0], 0] = 1
+            self.action_index_matrix[iB[0], 0] = iTS[0]
         elif TF[0] == -1:
             mtx[iB[1], 0] = -1
+            self.action_index_matrix[iB[0], 0] = iTS[0]
 
         # mark the other boxes
         for n in range(1, np.size(iB)):
@@ -1116,20 +1120,25 @@ class PointFigureChart:
             # positive trend goes on
             if TF[n - 1] == 1 and TF[n] == 1:
                 mtx[iB[n - 1]:iB[n] + 1, iC[n]] = TF[n]
+                self.action_index_matrix[iB[n - 1]:iB[n] + 1, iC[n]] = iTS[n]
 
             # positive trend reverses
             elif TF[n - 1] == 1 and TF[n] == -1:
                 mtx[iB[n]:iB[n - 1], iC[n]] = TF[n]
+                self.action_index_matrix[iB[n]:iB[n - 1], iC[n]] = iTS[n]
 
             # negative trend goes on
             elif TF[n - 1] == -1 and TF[n] == -1:
                 mtx[iB[n]:iB[n - 1] + 1, iC[n]] = TF[n]
+                self.action_index_matrix[iB[n]:iB[n - 1] + 1, iC[n]] = iTS[n]
 
             # negative trend reverses
             elif TF[n - 1] == -1 and TF[n] == 1:
                 mtx[iB[n - 1] + 1:iB[n] + 1, iC[n]] = TF[n]
+                self.action_index_matrix[iB[n - 1] + 1:iB[n] + 1, iC[n]] = iTS[n]
 
         return mtx
+
 
     def get_breakouts(self):
         """
@@ -2454,10 +2463,11 @@ class PointFigureChart:
         self.plot_y_ticklabels = self.plot_boxscale[self.plot_y_ticks]
 
         # prepare x-ticks
-        self.plot_column_label = self.column_labels[::-self.x_label_step]
+        if self.column_labels is not None:
+            self.plot_column_label = self.column_labels[::-self.x_label_step]
 
-        x_ticks = np.arange(np.size(self.column_labels))
-        self.plot_column_index = x_ticks[::-self.x_label_step] + 0.5
+            x_ticks = np.arange(np.size(self.column_labels))
+            self.plot_column_index = x_ticks[::-self.x_label_step] + 0.5
 
         if self.legend_position is None:
             self._evaluate_optimal_legend_position()
@@ -2512,7 +2522,7 @@ class PointFigureChart:
 
         self.ax3.set_ylim(bottom=-0.5, top=np.shape(self.plot_matrix)[0] - 0.5)
 
-        if self.column_axis is True:
+        if self.column_axis is True and self.plot_column_label is not None:
             self.ax2.set_xticks(self.plot_column_index)
             self.ax2.set_xticklabels(self.plot_column_label, rotation=90, ha='center', fontsize=self.label_fontsize)
         else:
@@ -2905,4 +2915,7 @@ if __name__ == '__main__':
     pnf = PointFigureChart(ts=data, method='h/l', reversal=2, boxsize=2, scaling='log', title='^SPX')
     pnf.get_trendlines(length=4, mode='weak')
     pnf.show_trendlines = 'external'
+    pnf.bollinger(5, 2)
+    pnf.donchian(8, 2)
+    pnf.psar(0.02, 0.2)
     pnf.show()
