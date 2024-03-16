@@ -20,7 +20,7 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-import pkg_resources
+from importlib.resources import files
 from numpy import recfromcsv
 """
 The testdata module contains different sets of testdata.
@@ -35,8 +35,8 @@ def dataset(set):
 
         file = 'data/' + set + '.csv'
 
-        file = pkg_resources.resource_filename('pypnf', file)
-        data = recfromcsv(file, encoding='utf-8')
+        path = files('pypnf').joinpath(file)
+        data = recfromcsv(path, encoding='utf-8')
 
         ts = {'date': [],
               'open': [],
@@ -51,7 +51,7 @@ def dataset(set):
             ts['high'].append(row[2])
             ts['low'].append(row[3])
             ts['close'].append(row[4])
-            ts['volume'].append(row[6])
+            ts['volume'].append(row[5])
 
     else:
 
