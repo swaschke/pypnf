@@ -2908,7 +2908,7 @@ class PointFigureChart:
 
 if __name__ == '__main__':
 
-    from testdata import dataset
+    from pypnf import dataset
 
     data = dataset('^SPX')
 
