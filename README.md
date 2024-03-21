@@ -62,7 +62,7 @@ printed 7/7 columns.
 
 ```python
 from pypnf import PointFigureChart
-from testdata import dataset
+from pypnf import dataset
 
 data = dataset('^SPX')
 
