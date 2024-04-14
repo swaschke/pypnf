@@ -379,7 +379,7 @@ class PointFigureChart:
                 if type(ts[key]) == str or float or int:
                     ts[key] = np.array([ts[key]])
 
-                    # if ts['date'] exist check for the type, if it's a string convert
+        # if ts['date'] exist check for the type, if it's a string convert
         # to datetime64 else create index of integers.
         # If the string can't converted to datetime64 create index of integers.
         if 'date' not in ts:
@@ -409,6 +409,15 @@ class PointFigureChart:
             if ts['date'][0] > ts['date'][-1]:
                 for key in ts.keys():
                     ts[key] = np.flip(ts[key])
+
+            datetime_diff = ts['date'][0:-1] - ts['date'][1:]
+
+            if any(np.mod(datetime_diff / np.timedelta64(1, "D"), 1) != 0):
+                self.time_step = 'm'
+            elif any(np.mod(datetime_diff / np.timedelta64(1, "D"), 1) == 0):
+                self.time_step = 'D'
+            else:
+                self.time_step = None
 
         if not isinstance(ts['date'][0], np.datetime64):
             ts['date'] = np.arange(0, ts['close'].shape[0])
@@ -1163,7 +1172,7 @@ class PointFigureChart:
             elements contain int of how long the line is from the breakout to
             the last filled box in previous columns on the same level.
             If there is no filled column the signal is counted as conti signal
-            and the first column of the PointfigChart is used to calculate the
+            and the first column of the PointFigureChart is used to calculate the
             outer width.
         """
 
@@ -1187,12 +1196,18 @@ class PointFigureChart:
         row_bear, col_bear = np.where(T == -1)
 
         # initiate dictionary
-        keys = ['trend', 'type', 'column index', 'box index', 'hits', 'width', 'outer width']
+        keys = ['ts index','trend', 'type', 'column index', 'box index', 'hits', 'width', 'outer width']
         bo = {}
         for key in keys:
             bo[key] = np.zeros(np.size(row_bull) + np.size(row_bear)).astype(int)
-        # bo['trend'] = bo['trend'].astype(str)
         bo['type'] = bo['type'].astype(str)
+
+        if isinstance(self.ts['date'][0], np.datetime64):
+            bo['ts index'] = bo['ts index'].astype(f'''datetime64[{self.time_step}]''')
+        elif isinstance(self.ts['date'][0], str):
+            bo['ts index'] = bo['ts index'].astype(f'''datetime64[{self.time_step}]''')
+        else:
+            bo['ts index'] = bo['ts index'].astype(int)
 
         # assign trends
         bo['trend'][0:np.size(row_bull)] = 1
@@ -1205,6 +1220,7 @@ class PointFigureChart:
 
                 bo['box index'][n] = row_bull[n]
                 bo['column index'][n] = col_bull[n]
+                bo['ts index'][n] = self.ts['date'][self.action_index_matrix[row_bull[n], col_bull[n]]]
 
                 hRL = mtx[row_bull[n] - 1, 0:col_bull[n] + 1]  # horizontal resistance line
                 boL = mtx[row_bull[n], 0:col_bull[n] + 1]  # breakout line
@@ -1280,6 +1296,7 @@ class PointFigureChart:
                         bo['hits'] = np.append(bo['hits'], np.sum(mtx[row_bull[n] - 1, k[p]:k[-1] + 1]))
                         bo['width'] = np.append(bo['width'], [k[-1] - k[p] + 1])
                         bo['outer width'] = np.append(bo['outer width'], bo['outer width'][n])
+                        bo['ts index'] = np.append(bo['ts index'], bo['ts index'][n])
 
         # bearish breakouts
         if np.any(row_bear):
@@ -1288,6 +1305,7 @@ class PointFigureChart:
 
                 bo['box index'][np.size(row_bull) + n] = row_bear[n]
                 bo['column index'][np.size(row_bull) + n] = col_bear[n]
+                bo['ts index'][np.size(row_bull) + n] = self.ts['date'][self.action_index_matrix[row_bull[n], col_bull[n]]]
 
                 hRL = mtx[row_bear[n] + 1, 0:col_bear[n] + 1]  # horizontal resistance line
                 boL = mtx[row_bear[n], 0:col_bear[n] + 1]  # breakout line
@@ -1363,6 +1381,7 @@ class PointFigureChart:
                         bo['hits'] = np.append(bo['hits'], np.abs(np.sum(mtx[row_bear[n] + 1, k[p]:k[-1] + 1])))
                         bo['width'] = np.append(bo['width'], [k[-1] - k[p] + 1])
                         bo['outer width'] = np.append(bo['outer width'], bo['outer width'][np.size(row_bull) + n])
+                        bo['ts index'] = np.append(bo['ts index'], bo['ts index'][np.size(row_bull) + n])
 
         # find index without entries:
         x = np.argwhere(bo['hits'] == 0)
@@ -1955,7 +1974,7 @@ class PointFigureChart:
         boxes = self.boxscale
         mtx = self.matrix
 
-        # check length her and leave function
+        # check length here and leave function
         if np.size(mtx, 1) <= 2:
             psar = np.zeros(np.size(mtx, 1))
             psar[:] = np.nan
@@ -2912,10 +2931,16 @@ if __name__ == '__main__':
 
     data = dataset('^SPX')
 
+    # del data['date']
+
     pnf = PointFigureChart(ts=data, method='h/l', reversal=2, boxsize=2, scaling='log', title='^SPX')
     pnf.get_trendlines(length=4, mode='weak')
     pnf.show_trendlines = 'external'
     pnf.bollinger(5, 2)
     pnf.donchian(8, 2)
     pnf.psar(0.02, 0.2)
+    # pnf.show_breakouts = True
     pnf.show()
+    # print(pnf.breakouts['ts index'])
+    # print(pnf.ts['date'])
+    # print(pnf.time_step)
