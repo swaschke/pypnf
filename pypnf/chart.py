@@ -24,11 +24,15 @@
 The chart module of the pyPnF package contains the main class PointFigureChart.
 The class handles the chart parameter and contains basic attributes like breakouts and trendlines.
 """
+from importlib.resources import files
 
 import numpy as np
 from matplotlib import pyplot as plt
 from matplotlib.lines import Line2D
 from tabulate import tabulate
+import json
+import re
+import datetime
 from warnings import warn
 
 BULLISH = 1
@@ -3581,6 +3585,75 @@ class PointFigureChart:
             print(f'last trendline: {last_trendline} line of length {last_trendline_length}')
         return f'printed {columns}/{total_columns} columns.'
 
+    def write_html(self, fname='pnf_chart.html', date_format='%Y-%m-%d', template=None):
+        """
+        Saves the Point and Figure chart as an SVG in HTML file.
+        """
+        self._prepare_variables_for_plotting()
+        self.show_trendlines = 'external'
+        if template is not None:
+            with open(template, 'r') as f:
+                html = f.read()
+        else:
+            file = 'html/svg_in_html.html'
+            html = files('pypnf').joinpath(file).read_text()
+
+        pattern = r'let title = \".*?\";'
+        data_str = json.dumps(self.title)
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let title = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let scaling = \".*?\";'
+        data_str = json.dumps(self.scaling)
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let scaling = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let boxSize = .*?;'
+        data_str = json.dumps(self.boxsize)
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let boxSize = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let matrix = \[.*?\];'
+        data_str = json.dumps(self.plot_matrix.tolist())
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let matrix = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let boxScale = \[.*?\];'
+        data_str = json.dumps(self.plot_boxscale.tolist())
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let boxScale = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let trendLines = \{.*?\};'
+        data_str = json.dumps({k: v.tolist() for k, v in self.get_trendlines().items()})
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let trendLines = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let breakOuts = \{.*?\};'
+        bo = self.get_breakouts()
+        if isinstance(bo['ts index'], np.ndarray) and np.issubdtype(bo['ts index'].dtype, np.datetime64):
+            bo['ts index'] = np.array([d.astype(datetime.datetime).strftime(date_format) for d in bo['ts index']])
+        bo = {k: v.tolist() for k, v in bo.items()}
+        data_str = json.dumps(bo)
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let breakOuts = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let indicators = \{.*?\};'
+        data_str = json.dumps({k: v.tolist() for k, v in self.plot_indicator.items()})
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let indicators = {data_str};', html, flags=re.DOTALL)
+        pattern = r'let columnLabels = \[.*?\];'
+        # if column_labels are datetime objects, convert to string
+        if isinstance(self.column_labels, np.ndarray) and np.issubdtype(self.column_labels.dtype, np.datetime64):
+            column_labels = np.array([d.astype(datetime.datetime).strftime(date_format) for d in self.column_labels])
+        else:
+            column_labels = self.column_labels
+        data_str = json.dumps(column_labels)
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let columnLabels = {data_str};', html, flags=re.DOTALL)
+        pattern = r' let matrix_bottom_cut_index = .*?;'
+        data_str = json.dumps(self.matrix_bottom_cut_index.item())
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let matrix_bottom_cut_index = {data_str};', html, flags=re.DOTALL)
+        pattern = r' let matrix_top_cut_index = .*?;'
+        data_str = json.dumps(self.matrix_top_cut_index.item())
+        # Replace the matched pattern with the new data string
+        html = re.sub(pattern, f'let matrix_top_cut_index = {data_str};', html, flags=re.DOTALL)
+
+        with open(fname, 'w') as f:
+            f.write(html)
 
 if __name__ == '__main__':
 

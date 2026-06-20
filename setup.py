@@ -16,7 +16,7 @@ setup(
     author_email='swaschke.pypnf@gmail.com',
     license='GPL2',
     packages=['pypnf'],
-    package_data={'pypnf': ['data/*.csv']},
+    package_data={'pypnf': ['data/*.csv', 'html/*.html']},
     # packages=find_packages(),
     classifiers=['Development Status :: 4 - Beta',
                  'Programming Language :: Python :: 3.6',

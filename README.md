@@ -71,6 +71,8 @@ pnf.bollinger(5, 2)
 pnf.donchian(8,2)
 pnf.psar(0.02, 0.2)
 pnf.show()
+# or
+pnf.write_html('chart.html')
 ```
 ![chart](https://github.com/swaschke/pypnf/blob/main/images/chart.png)
 

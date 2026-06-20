@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"
+    />
+    <title>SVG Pan and Zoom with X and O Symbols</title>
+    <style>
+      #container {
+      }
+
+      svg {
+        display: block;
+        /* width: 100%;
+            height: 100%; */
+      }
+
+      svg text {
+        -webkit-user-select: none;
+        -moz-user-select: none;
+        -ms-user-select: none;
+        user-select: none;
+      }
+
+      :root {
+        --icon-stroke-width: 1;
+        --icon-fill-one: #ebf300;
+        --icon-fill-two: #1a6100;
+        --icon-stroke-one: #020406;
+        --icon-stroke-two: #000000;
+        --icon-fill-opacity: 0.2;
+      }
+
+      #rectIcon rect {
+        stroke: var(--icon-stroke-one);
+        stroke-width: var(--icon-stroke-width);
+        fill: var(--icon-fill-one);
+        fill-opacity: var(--icon-fill-opacity);
+      }
+
+      #circleIcon circle:first-of-type {
+        fill: var(--icon-fill-one);
+      }
+
+      #circleIcon circle:last-of-type {
+        fill: var(--icon-fill-two);
+      }
+
+      #lineIcon line {
+        stroke: var(--icon-stroke-one);
+        stroke-width: var(--icon-stroke-width);
+      }
+    </style>
+  </head>
+
+  <script>
+    let title = "Point & Figure (log|h/l) 1% x 3 | SPY 10min - log 1%";
+    let scaling = "log";
+    let boxSize = 1;
+
+    let columnLabels = ["2023-11-01 09:00", "2024-04-15 19:10", "2024-04-26 14:30", "2024-07-24 16:10", "2024-08-06 14:00", "2024-08-08 01:30", "2024-08-08 19:20", "2024-09-06 10:40", "2024-09-12 14:30", "2024-11-04 18:00", "2024-11-06 10:00", "2024-12-18 21:30", "2024-12-24 15:40", "2025-01-10 16:10", "2025-01-17 15:10", "2025-01-27 11:50", "2025-01-31 16:10", "2025-02-03 10:00", "2025-02-13 20:50", "2025-02-25 16:20", "2025-03-17 19:10", "2025-03-28 17:20", "2025-04-02 22:10", "2025-04-02 22:30", "2025-04-04 14:00", "2025-04-04 15:40", "2025-04-07 16:10", "2025-04-07 16:20", "2025-04-07 17:00", "2025-04-07 17:10", "2025-04-07 19:40", "2025-04-08 18:30", "2025-04-09 15:30", "2025-04-10 15:40", "2025-04-11 12:20", "2025-04-16 19:50", "2025-04-22 16:50", "2025-05-13 15:10", "2025-05-13 15:50", "2025-05-23 14:00", "2025-05-27 19:50", "2025-08-01 15:50", "2025-08-12 14:40", "2025-10-10 21:50", "2025-10-15 11:00"];
+
+    let boxScale = [404.93, 408.98, 413.07, 417.2, 421.37, 425.59, 429.84, 434.14, 438.48, 442.87, 447.3, 451.77, 456.29, 460.85, 465.46, 470.11, 474.81, 479.56, 484.36, 489.2, 494.09, 499.03, 504.02, 509.06, 514.15, 519.3, 524.49, 529.73, 535.03, 540.38, 545.79, 551.24, 556.76, 562.32, 567.95, 573.63, 579.36, 585.16, 591.01, 596.92, 602.89, 608.92, 615.0, 621.15, 627.37, 633.64, 639.98, 646.38, 652.84, 659.37, 665.96, 672.62, 679.35, 686.14, 693.0];
+
+    // Define the matrix
+    let matrix = [[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 0.0, -1.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 1.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [1.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, -1.0, 0.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 1.0, -1.0, 1.0, -1.0, 1.0, -1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, -1.0, 1.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+
+    let trendLines = {"bounded": ["external", "internal", "internal", "internal", "internal", "internal", "internal", "external", "internal", "internal", "internal", "internal", "external", "internal", "internal", "internal", "internal", "internal"], "type": ["bullish support", "bearish resistance", "bullish support", "bullish support", "bullish support", "bearish resistance", "bullish support", "bearish resistance", "bearish resistance", "bearish resistance", "bullish support", "bearish resistance", "bullish support", "bullish support", "bullish support", "bullish support", "bullish support", "bearish resistance"], "length": [18, 4, 14, 10, 4, 4, 4, 14, 10, 6, 4, 4, 14, 10, 6, 4, 2, 1], "column index": [1, 2, 5, 7, 9, 10, 13, 18, 22, 24, 25, 26, 31, 35, 39, 41, 43, 44], "box index": [37, 52, 41, 46, 51, 60, 53, 60, 53, 47, 35, 44, 35, 40, 52, 60, 64, 69]};
+    let breakOuts = {"ts index": ["2024-06-06", "2024-08-13", "2024-09-26", "2024-09-26", "2024-11-08", "2025-01-23", "2024-08-22", "2024-07-11", "2024-07-11", "2025-05-02", "2025-05-02", "2024-08-15", "2025-04-25", "2025-04-25", "2025-04-08", "2025-04-09", "2024-06-12", "2025-04-09", "2025-04-08", "2025-04-08", "2024-05-15", "2024-05-15", "2025-04-09", "2025-04-09", "2024-08-13", "2025-04-25", "2025-04-30", "2025-05-12", "2025-05-13", "2025-05-16", "2025-06-10", "2025-07-03", "2025-07-03", "2025-07-03", "2025-07-03", "2025-09-10"], "trend": [1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, -1, -1, 1, 1, -1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1], "type": ["conti", "reversal", "conti", "conti", "conti", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "reversal", "resistance", "reversal", "reversal", "reversal", "reversal", "reversal", "conti", "conti", "conti", "conti", "conti"], "column index": [2, 6, 8, 8, 10, 14, 19, 19, 19, 19, 19, 23, 23, 23, 25, 25, 25, 25, 30, 30, 31, 31, 32, 32, 35, 36, 36, 36, 36, 38, 40, 40, 40, 40, 40, 42], "box index": [45, 46, 52, 52, 56, 58, 51, 53, 53, 55, 55, 46, 48, 48, 37, 40, 41, 42, 42, 44, 37, 37, 45, 47, 41, 48, 49, 53, 54, 56, 57, 60, 60, 60, 60, 65], "hits": [2, 2, 2, 3, 2, 2, 2, 2, 3, 2, 3, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 2, 2, 2, 3, 4, 5, 2], "width": [3, 3, 3, 7, 3, 3, 11, 7, 9, 3, 5, 17, 3, 5, 25, 23, 21, 3, 3, 5, 3, 5, 3, 9, 3, 3, 5, 15, 17, 3, 3, 23, 25, 27, 31, 3], "outer width": [3, 4, 9, 9, 11, 4, 12, 10, 10, 6, 6, 18, 16, 16, 26, 24, 23, 21, 4, 6, 6, 6, 8, 10, 4, 5, 14, 17, 18, 20, 22, 41, 41, 41, 41, 43]};
+    let indicators = {"Bollinger(5,2)-upper": [NaN, NaN, NaN, NaN, 32.421, 28.96, 29.644, 31.592, 34.92, 37.415, 39.474, 40.549, 40.221, 39.497, 39.259, 39.686, 40.621, 40.737, 40.377, 41.949, 42.736, 41.899, 40.36, 36.836, 35.973, 36.238, 34.736, 30.284, 27.018, 22.875, 23.695, 23.668999999999997, 25.090000000000003, 27.374000000000002, 28.552, 28.813000000000002, 30.853, 35.789, 39.264, 40.688, 42.35, 45.267, 49.554, 52.134, 51.914], "Bollinger(5,2)-lower": [NaN, NaN, NaN, NaN, 13.736, 21.951, 23.896, 23.281999999999996, 22.177999999999997, 23.423000000000002, 26.618000000000002, 29.213, 32.672, 34.863, 36.73, 36.698, 36.548, 36.835, 38.416, 35.37, 32.262, 30.037999999999997, 29.208, 28.433999999999997, 25.835, 20.927, 18.148000000000003, 18.451, 19.063000000000002, 20.918, 20.485999999999997, 20.310000000000002, 19.857999999999997, 19.307000000000002, 20.53, 21.078000000000003, 22.621000000000002, 21.636000000000003, 21.979999999999997, 24.211, 28.915999999999997, 31.374000000000002, 31.863, 34.06, 39.815], "Donchian(8,2)-upper": [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, 33.0, 37.0, 37.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 41.0, 40.0, 35.0, 34.0, 34.0, 33.0, 28.0, 30.0, 30.0, 30.0, 30.0, 37.0, 37.0, 38.0, 38.0, 46.0, 46.0, 51.0], "Donchian(8,2)-lower": [NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, NaN, 3.0, 20.0, 21.0, 23.0, 24.0, 24.0, 25.0, 29.0, 30.0, 34.0, 35.0, 36.0, 31.0, 31.0, 31.0, 31.0, 25.0, 25.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 18.0, 19.0, 23.0, 23.0, 23.0], "pSAR(0.02,0.2)": [3.0, 3.5159999999999982, 4.018999999999998, 5.352, 6.6179999999999986, 7.818000000000001, 8.956, 10.035, 11.062999999999999, 12.822, 14.448999999999998, 16.853, 19.012, 20.96, 22.719, 24.311, 25.750999999999998, 27.061999999999998, 28.25, 29.332, 30.316000000000003, -41.0, -40.81, -40.622, -40.042, -39.482, -38.315, -37.205, -36.151, -35.149, -34.199, -33.298, -32.442, -31.633000000000003, -30.863999999999997, -30.136000000000003, 18.0, 18.417, 18.825000000000003, 19.667, 20.469, 22.198, 23.796999999999997, 26.265, 28.484]};
+
+    const rowSums = matrix.map((row) =>
+      row.reduce((sum, value) => sum + Math.abs(value), 0)
+    );
+    const nonZeroIndices = rowSums.flatMap((sum, index) =>
+      sum !== 0 ? index : []
+    );
+
+   let matrix_bottom_cut_index = 18;
+   let matrix_top_cut_index = 73;
+
+    let plotMatrix = matrix.slice().reverse();
+    let plotBoxScale = boxScale.slice().reverse();
+  </script>
+
+  <body>
+    <div id="container">
+      <svg id="svg" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <!-- Define a clipping path -->
+          <clipPath id="clip-path">
+            <rect x="0" y="7" width="50" height="35" />
+            <!-- Adjust y and height to clip the top and bottom -->
+          </clipPath>
+          <!-- Define the X symbol -->
+          <symbol id="X-symbol" viewBox="0 0 50 50" height="50" width="50">
+            <!-- Apply the clipping path to the X -->
+            <g clip-path="url(#clip-path)">
+              <line
+                x1="10"
+                y1="6"
+                x2="40"
+                y2="43"
+                stroke="green"
+                stroke-width="6"
+              />
+              <line
+                x1="40"
+                y1="6"
+                x2="10"
+                y2="43"
+                stroke="green"
+                stroke-width="6"
+              />
+            </g>
+          </symbol>
+          <symbol id="O-symbol" viewBox="0 0 50 50" height="50" width="50">
+            <circle
+              cx="25"
+              cy="25"
+              r="15"
+              fill="none"
+              stroke="red"
+              stroke-width="6"
+            />
+
+            <symbol id="circleIcon" viewBox="0 0 20 20">
+              <clipPath id="half">
+                <rect x="10" y="0" width="14" height="20" />
+              </clipPath>
+              <circle cx="10" cy="10" r="8"></circle>
+              <circle cx="10" cy="10" r="8" clip-path="url(#half)"></circle>
+            </symbol>
+            <symbol id="rectIcon" viewBox="0 0 20 20">
+              <rect x="2" y="2" width="16" height="16"></rect>
+            </symbol>
+            <symbol id="lineIcon" viewBox="0 0 20 20">
+              <line x1="2" y1="10" x2="18" y2="10"></line>
+            </symbol>
+          </symbol>
+          <mask id="chart-mask"></mask>
+          <mask id="axes-mask"></mask>
+        </defs>
+        <g mask="url(#chart-mask)" id="masked-chart">
+          <g id="zoom-container">
+            <g id="grid-group"></g>
+            <g id="graph-container"></g>
+          </g>
+        </g>
+        <g mask="url(#axes-mask)" id="masked-axes"></g>
+        <text id="grid-toggle" font-size="40" style="cursor: pointer;">Toggle gridlines</text>
+        <text id="trendline-toggle" font-size="40" style="cursor: pointer;">Toggle trendlines</text>
+        <text id="breakout-toggle" font-size="40" style="cursor: pointer;">Toggle breakouts</text>
+      </svg>
+    </div>
+
+    <script>
+      const smoothing = 0.1;
+      // Function to transpose a 2D array
+      function transpose(arr) {
+        return arr[0].map((_, colIndex) => arr.map((row) => row[colIndex]));
+      }
+
+      // Properties of a line
+      // I:  - pointA (array) [x,y]: coordinates
+      //     - pointB (array) [x,y]: coordinates
+      // O:  - (object) { length: l, angle: a }: properties of the line
+      const line = (pointA, pointB) => {
+        const lengthX = pointB[0] - pointA[0];
+        const lengthY = pointB[1] - pointA[1];
+        return {
+          length: Math.sqrt(Math.pow(lengthX, 2) + Math.pow(lengthY, 2)),
+          angle: Math.atan2(lengthY, lengthX),
+        };
+      };
+
+      // Position of a control point
+      // I:  - current (array) [x, y]: current point coordinates
+      //     - previous (array) [x, y]: previous point coordinates
+      //     - next (array) [x, y]: next point coordinates
+      //     - reverse (boolean, optional): sets the direction
+      // O:  - (array) [x,y]: a tuple of coordinates
+      const controlPoint = (current, previous, next, reverse) => {
+        // When 'current' is the first or last point of the array
+        // 'previous' or 'next' don't exist.
+        // Replace with 'current'
+        const p = previous || current;
+        const n = next || current;
+
+        // Properties of the opposed-line
+        const o = line(p, n);
+
+        // If is end-control-point, add PI to the angle to go backward
+        const angle = o.angle + (reverse ? Math.PI : 0);
+        const length = o.length * smoothing;
+
+        // The control point position is relative to the current point
+        const x = current[0] + Math.cos(angle) * length;
+        const y = current[1] + Math.sin(angle) * length;
+        return [x, y];
+      };
+
+      // Create the bezier curve command
+      // I:  - point (array) [x,y]: current point coordinates
+      //     - i (integer): index of 'point' in the array 'a'
+      //     - a (array): complete array of points coordinates
+      // O:  - (string) 'C x2,y2 x1,y1 x,y': SVG cubic bezier C command
+      const bezierCommand = (point, i, a) => {
+        // start control point
+        const cps = controlPoint(a[i - 1], a[i - 2], point);
+
+        // end control point
+        const cpe = controlPoint(point, a[i - 1], a[i + 1], true);
+        return `C ${cps[0]},${cps[1]} ${cpe[0]},${cpe[1]} ${point[0]},${point[1]}`;
+      };
+
+      // Create the svg <path> d attribute
+      // I:  - points (array): points coordinates
+      //     - command (function)
+      //       I:  - point (array) [x,y]: current point coordinates
+      //           - i (integer): index of 'point' in the array 'a'
+      //           - a (array): complete array of points coordinates
+      //       O:  - (string) a svg path command
+      // O:  - (string): a Svg <path> d attribute
+      const svgPath = (points, command, fill) => {
+        // build the d attributes by looping over the points
+        return points.reduce(
+          (acc, point, i, a) =>
+            i === 0
+              ? (fill ? "L" : "M") + ` ${point[0]},${point[1]}`
+              : `${acc} ${command(point, i, a)}`,
+          ""
+        );
+      };
+
+      const gEBI = (id) => document.getElementById(id);
+      const cENs = (el) =>
+        document.createElementNS("http://www.w3.org/2000/svg", el);
+
+      const svgElement = gEBI("svg");
+      const chartMask = gEBI("chart-mask");
+      const axesMask = gEBI("axes-mask");
+      const maskedChart = gEBI("masked-chart");
+      const maskedAxes = gEBI("masked-axes");
+
+      const zoomContainer = gEBI("zoom-container");
+      const graphContainer = gEBI("graph-container");
+      const symbolSize = 50; // Size of each symbol, adjust as needed
+      const yAxisWidth = 250; // Adjust based on your needs for label and line spacing
+      const xAxisHeight = 280;
+      const titleHeight = 50;
+      // create a array of strong colors for a chart
+      const colors = [
+        "darkgreen",
+        "blue",
+        "hotpink",
+        "darkblue",
+        "green",
+        "warmred",
+      ];
+      let colorIndex = 0;
+
+      let legendYOffset = 0;
+
+      const chartMaskRectWhite = cENs("rect");
+      const chartMaskRectBlack = cENs("rect");
+      chartMaskRectWhite.setAttribute("fill", "white");
+      chartMaskRectBlack.setAttribute("fill", "black");
+      chartMask.appendChild(chartMaskRectBlack);
+      chartMask.appendChild(chartMaskRectWhite);
+
+      const chartBorder = cENs("rect");
+      chartBorder.setAttribute("stroke-width", 4);
+      chartBorder.setAttribute("stroke", "black");
+      chartBorder.setAttribute("fill", "none");
+
+      svgElement.appendChild(chartBorder);
+
+      const yAxisContainer = cENs("g");
+      yAxisContainer.setAttribute("id", "y-axis-container");
+
+      const xAxisContainer = cENs("g");
+      xAxisContainer.setAttribute("id", "x-axis-container");
+
+      maskedAxes.appendChild(yAxisContainer);
+      maskedAxes.appendChild(xAxisContainer);
+
+      const yAxisMaskRectWhite = cENs("rect");
+      const xAxisMaskRectWhite = cENs("rect");
+      const axesMaskRectBlack = cENs("rect");
+      yAxisMaskRectWhite.setAttribute("fill", "white");
+      xAxisMaskRectWhite.setAttribute("fill", "white");
+      axesMaskRectBlack.setAttribute("fill", "black");
+      axesMask.appendChild(axesMaskRectBlack);
+      axesMask.appendChild(yAxisMaskRectWhite);
+      axesMask.appendChild(xAxisMaskRectWhite);
+
+      const legendContainer = cENs("g");
+      legendContainer.setAttribute("transform", "translate(40, 40)"); // Position the legend
+
+      svgElement.appendChild(legendContainer);
+
+      const gridGroup = gEBI("grid-group");
+
+      let width, height;
+
+      let xIncr = symbolSize - 10,
+        yIncr = symbolSize - 13.5;
+
+      let isPanning = false,
+        startX,
+        startY,
+        panX = 0,
+        panY = 0,
+        zoomScale = 1;
+      let maxY = 0, maxX = 0,
+        minY = 99999999;
+      let lastYPosition = 0;
+      let bBox;
+      // Function to add symbols and column numbers from the plotMatrix
+      function addSymbolsFromMatrix(plotMatrix, fitlastNum) {
+        let fitlastAfter =
+          plotMatrix[0].length > fitlastNum
+            ? plotMatrix[0].length - fitlastNum
+            : 0;
+        let pointMatrix = plotMatrix.map((row, i) => {
+          return row.map((col, j) => {
+            if (col !== 0) {
+              let point = {
+                x: (j + 1) * xIncr,
+                y: (i + 1) * yIncr,
+                s: col === 1 ? "#X-symbol" : "#O-symbol",
+              };
+              if (j > fitlastAfter) {
+                minY = point.y < minY ? point.y : minY;
+                maxY = point.y > maxY ? point.y : maxY;
+              }
+              maxX = point.x > maxX ? point.x : maxX;
+
+              return point;
+            }
+            return 0;
+          });
+        });
+        // Variables to determine the position of the first symbol
+        pointMatrix[0].forEach((_, columnIndex) => {
+          let firstSymbolYPosition = null;
+
+          const columnGroup = cENs("g");
+          columnGroup.setAttribute("id", `column-${columnIndex}`);
+
+          // Add column number as text. Initially, place it at the top
+          const text = cENs("text");
+          text.setAttribute("x", symbolSize / 2);
+          // Default Y position for the text, will adjust based on the symbol's position
+          text.setAttribute("text-anchor", "middle");
+          text.setAttribute("font-size", "24px");
+          text.textContent = columnIndex + 1; // Display column number (1-indexed)
+          plotMatrix.forEach((row, rowIndex) => {
+            const value = pointMatrix[rowIndex][columnIndex];
+            if (value !== 0) {
+              columnGroup.setAttribute("transform", `translate(${value.x}, 0)`);
+              const symbolType = value.s;
+              const use = cENs("use");
+              use.setAttributeNS(
+                "http://www.w3.org/1999/xlink",
+                "xlink:href",
+                symbolType
+              );
+              use.setAttribute("x", 0); // X is 0 because positioning is handled by the column group
+
+              // Adjust Y position to invert the drawing order
+              const yPos = value.y;
+              use.setAttribute("y", yPos);
+              columnGroup.appendChild(use);
+
+              firstSymbolYPosition =
+                firstSymbolYPosition === null ? yPos : firstSymbolYPosition;
+              lastSymbolYPosition = yPos;
+            }
+          });
+          text.setAttribute("y", firstSymbolYPosition - 10);
+          //text.setAttribute("transform", `scale(1 -1)`);
+          text.setAttribute(
+            "transform-origin",
+            `0 ${firstSymbolYPosition - 10}`
+          );
+          // Add the text element after determining its correct Y position
+          //columnGroup.appendChild(text);
+          graphContainer.appendChild(columnGroup);
+        });
+        width = symbolSize * 50;
+        height = 30 * yIncr;
+
+        svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
+
+        chartMaskRectBlack.setAttribute("width", width);
+        chartMaskRectBlack.setAttribute("height", height);
+
+        chartMaskRectWhite.setAttribute("width", width - yAxisWidth);
+        chartMaskRectWhite.setAttribute(
+          "height",
+          height - xAxisHeight - titleHeight
+        );
+        chartMaskRectWhite.setAttribute("y", titleHeight);
+
+        chartBorder.setAttribute("width", width - yAxisWidth);
+        chartBorder.setAttribute("height", height - xAxisHeight - titleHeight);
+        chartBorder.setAttribute("y", titleHeight);
+
+        axesMaskRectBlack.setAttribute("width", width);
+        axesMaskRectBlack.setAttribute("height", height);
+
+        yAxisMaskRectWhite.setAttribute("width", yAxisWidth);
+        yAxisMaskRectWhite.setAttribute(
+          "height",
+          height - xAxisHeight - titleHeight
+        );
+        yAxisMaskRectWhite.setAttribute("x", width - yAxisWidth);
+        yAxisMaskRectWhite.setAttribute("y", titleHeight);
+
+        xAxisMaskRectWhite.setAttribute("width", width - yAxisWidth);
+        xAxisMaskRectWhite.setAttribute("height", xAxisHeight);
+        xAxisMaskRectWhite.setAttribute("y", height - xAxisHeight);
+
+        bBox = zoomContainer.getBBox();
+
+        const visibleHeight = maxY - minY;
+        console.log({ maxY, minY, visibleHeight, height });
+        const prepareZoomScale =  (height - xAxisHeight - titleHeight) / (visibleHeight + symbolSize + 80);
+        zoomScale = prepareZoomScale
+        panX = -maxX*zoomScale + (width - yAxisWidth) - xIncr*2*zoomScale;
+        panY = -yIncr*zoomScale;
+        updateTransform();
+      }
+
+      function addPSARIndicator(key, indicator) {
+        const scatterPoints = indicator
+          .map((value, idx) => {
+            return !Number.isNaN(value)
+              ? [
+                  (idx + 1.65) * xIncr,
+                  bBox.height - (Math.abs(value) - 6.7) * yIncr,
+                  Math.sign(value),
+                ]
+              : false;
+          })
+          .filter((x) => x);
+
+        const indicatorGroup = cENs("g");
+        const hashedId = simpleHash(key); // Generate a hashed ID from the key
+        indicatorGroup.setAttribute("id", `indicator-group-${simpleHash(key)}`);
+
+        // get two colors from colors array and increase the index by 2
+        const colorOne = colors[colorIndex];
+        const colorTwo = colors[colorIndex + 1];
+        colorIndex += 2;
+
+        scatterPoints.map((value) => {
+          const circle = document.createElementNS(
+            "http://www.w3.org/2000/svg",
+            "circle"
+          );
+          circle.setAttribute("r", 15);
+          circle.setAttribute("cx", value[0]);
+          circle.setAttribute("cy", value[1]);
+
+          circle.setAttribute("fill", value[2] < 0 ? colorOne : colorTwo);
+          indicatorGroup.appendChild(circle);
+        });
+        graphContainer.appendChild(indicatorGroup);
+        createLegend("circleIcon", key, {
+          "fill-one": colorOne,
+          "fill-two": colorTwo,
+        });
+      }
+
+      function addFilledIndicator(key, indicator_upper, indicator_lower) {
+        const pathPointsUpper = indicator_upper
+          .map((value, idx) => {
+            return !Number.isNaN(value)
+              ? [(idx + 1.65) * xIncr, bBox.height - yIncr * (value - 6.7)]
+              : false;
+          })
+          .filter((x) => x);
+
+        const pathPointsLower = indicator_lower
+          .map((value, idx) => {
+            return !Number.isNaN(value)
+              ? [(idx + 1.65) * xIncr, bBox.height - yIncr * (value - 6.7)]
+              : false;
+          })
+          .filter((x) => x);
+
+        const indicatorGroup = cENs("g");
+
+        // get one color from colors array and increase the index by 1
+        const color = colors[colorIndex];
+        colorIndex += 1;
+        const opacity = 0.2;
+        const strokeWidth = 4;
+
+        const hashedId = simpleHash(key); // Generate a hashed ID from the key
+        indicatorGroup.setAttribute("id", `indicator-group-${simpleHash(key)}`);
+        const indicatorPathUpper = createPathElementFromPoints(pathPointsUpper);
+        const indicatorPathLower = createPathElementFromPoints(pathPointsLower);
+        const indicatorPathFill = createPathElementFromPoints(
+          pathPointsUpper,
+          pathPointsLower
+        );
+
+        indicatorPathUpper.setAttribute("stroke", color);
+        indicatorPathLower.setAttribute("stroke", color);
+
+        indicatorPathUpper.setAttribute("stroke-width", strokeWidth);
+        indicatorPathLower.setAttribute("stroke-width", strokeWidth);
+
+        indicatorGroup.appendChild(indicatorPathUpper);
+        indicatorGroup.appendChild(indicatorPathLower);
+
+        indicatorPathFill.setAttribute("stroke", "none");
+        indicatorPathFill.setAttribute("fill", color);
+        indicatorPathFill.setAttribute("fill-opacity", opacity);
+        indicatorGroup.appendChild(indicatorPathFill);
+
+        graphContainer.appendChild(indicatorGroup);
+        createLegend("rectIcon", key, {
+          "fill-one": color,
+          "stroke-one": color,
+          "stroke-width": 4,
+          "fill-opacity": opacity,
+        });
+      }
+      function createPathElementFromPoints(points, fillToPoints) {
+        const path = `${svgPath(points, bezierCommand)}${
+          fillToPoints
+            ? " " + svgPath(fillToPoints.reverse(), bezierCommand, true) + " Z"
+            : ""
+        }`;
+
+        const pathElement = cENs("path");
+
+        pathElement.setAttribute("d", path);
+        pathElement.setAttribute("stroke", "black");
+        pathElement.setAttribute("stroke-width", 4);
+        pathElement.setAttribute("stroke-linejoin", "bevel");
+        pathElement.setAttribute("fill", "transparent");
+        return pathElement;
+      }
+      function addLineIndicator(key, indicator) {
+        const pathPoints = indicator
+          .map((value, idx) => {
+            return !Number.isNaN(value)
+              ? [(idx + 1.65) * xIncr, bBox.height - yIncr * (value - 6.7)]
+              : false;
+          })
+          .filter((x) => x);
+
+        const indicatorGroup = cENs("g");
+
+        // get one color from colors array and increase the index by 1
+        const color = colors[colorIndex];
+        colorIndex += 1;
+        const strokeWidth = 4;
+
+        const hashedId = simpleHash(key); // Generate a hashed ID from the key
+        indicatorGroup.setAttribute("id", `indicator-group-${simpleHash(key)}`);
+        const indicatorPath = createPathElementFromPoints(pathPoints);
+        indicatorPath.setAttribute("stroke", color);
+        indicatorPath.setAttribute("stroke-width", strokeWidth);
+        indicatorGroup.appendChild(indicatorPath);
+        graphContainer.appendChild(indicatorGroup);
+        createLegend("lineIcon", key, {
+          "stroke-one": color,
+          "stroke-width": strokeWidth,
+        });
+      }
+
+      function addIndicators(indicators) {
+        for (const [key, value] of Object.entries(indicators)) {
+          if (/-upper$/.test(key)) {
+            addFilledIndicator(
+              key,
+              value,
+              indicators[key.replace(/-upper$/, "-lower")]
+            );
+          } else if (/-lower$/.test(key)) {
+          } else if (/pSAR/.test(key)) {
+            addPSARIndicator(key, value);
+          } else {
+            addLineIndicator(key, value);
+          }
+        }
+      }
+      function addYAxis(plotBoxScale, zoomScale) {
+        // Ensure yAxisContainer is empty before adding new elements
+        while (yAxisContainer.firstChild) {
+          yAxisContainer.removeChild(yAxisContainer.firstChild);
+        }
+
+        // Determine the decimation factor based on zoomScale
+        let decimationFactor = 1;
+        if (zoomScale < 0.25) decimationFactor = 6;
+        else if (zoomScale < 0.5) decimationFactor = 4;
+        else if (zoomScale < 1) decimationFactor = 2;
+
+        plotBoxScale.forEach((scaleValue, i) => {
+          if (i % decimationFactor !== 0) return; // Skip elements based on decimation factor
+
+          const yPos = (i + 1.7) * yIncr * zoomScale; // Calculate yPos using the scaled yIncr
+
+          // Create and append line to the yAxisContainer
+          let line = cENs("line");
+          line.setAttribute("x1", 0);
+          line.setAttribute("y1", yPos);
+          line.setAttribute("x2", 20);
+          line.setAttribute("y2", yPos);
+          line.setAttribute("stroke", "black");
+          line.setAttribute("stroke-width", 4);
+
+          // Create and append text to the yAxisContainer
+          let text = cENs("text");
+          text.setAttribute("x", 25);
+          text.setAttribute("y", yPos + 10);
+          text.textContent = scaleValue.toFixed(2);
+          text.setAttribute("font-size", "35");
+
+          yAxisContainer.appendChild(line);
+          yAxisContainer.appendChild(text);
+        });
+
+        // Position the yAxisContainer on the right
+        yAxisContainer.setAttribute(
+          "transform",
+          `translate(${width - yAxisWidth},0)`
+        );
+      }
+
+      function updateYAxisAlignment() {
+        // Adjust the yAxisContainer translation based on the yPos and ensure it is translated vertically along with zoomContainer
+        yAxisContainer.setAttribute(
+          "transform",
+          `translate(${width - yAxisWidth}, ${panY})`
+        );
+      }
+
+      function addXAxis(columnLabels, zoomScale) {
+        // Ensure xAxisContainer is empty before adding new elements
+        while (xAxisContainer.firstChild) {
+          xAxisContainer.removeChild(xAxisContainer.firstChild);
+        }
+
+        // Determine the decimation factor based on zoomScale
+        let decimationFactor = 1;
+        if (zoomScale < 0.25) decimationFactor = 6;
+        else if (zoomScale < 0.5) decimationFactor = 4;
+        else if (zoomScale < 1) decimationFactor = 2;
+
+        columnLabels.forEach((scaleValue, i) => {
+          if (i % decimationFactor !== 0) return; // Skip elements based on decimation factor
+
+          const xPos = (i + 1.6) * xIncr * zoomScale; // Calculate yPos using the scaled xIncr
+
+          // Create and append line to the xAxisContainer
+          let line = cENs("line");
+          line.setAttribute("x1", xPos);
+          line.setAttribute("y1", 0);
+          line.setAttribute("x2", xPos);
+          line.setAttribute("y2", 20);
+          line.setAttribute("stroke", "black");
+          line.setAttribute("stroke-width", 4);
+
+          // Create and append text to the xAxisContainer
+          let text = cENs("text");
+          text.setAttribute("x", xPos - 10);
+          text.setAttribute("y", 30);
+          text.textContent = scaleValue;
+          text.setAttribute("font-size", "35");
+          text.setAttribute("transform", "rotate(90)");
+          text.setAttribute("transform-origin", `${xPos - 10} ${30}`);
+
+          xAxisContainer.appendChild(line);
+          xAxisContainer.appendChild(text);
+        });
+
+        // Position the yAxisContainer on the right
+        xAxisContainer.setAttribute(
+          "transform",
+          `translate(0,${height - xAxisHeight})`
+        );
+      }
+
+      function updateXAxisAlignment() {
+        // Adjust the xAxisContainer translation based on the xPos and ensure it is translated vertically along with zoomContainer
+        xAxisContainer.setAttribute(
+          "transform",
+          `translate(${panX}, ${height - xAxisHeight})`
+        );
+      }
+
+      function createLegend(iconId, key, iconStyleVars) {
+        const iconSpacing = 10; // Space between the icon and text
+        const iconSize = 25; // Assuming square viewbox for simplicity
+        const offset = legendYOffset + titleHeight;
+        if (iconId) {
+          const useIcon = cENs("use");
+          useIcon.setAttribute("href", `#${iconId}`);
+          useIcon.setAttribute("x", 0);
+          useIcon.setAttribute("y", offset - iconSize);
+          useIcon.setAttribute("width", iconSize);
+          useIcon.setAttribute("height", iconSize);
+
+          for (const [key, value] of Object.entries(iconStyleVars)) {
+            useIcon.style.setProperty(`--icon-${key}`, value); // Apply the iconColor parameter
+          }
+
+          legendContainer.appendChild(useIcon);
+        }
+
+        const legendItem = cENs("text");
+        legendItem.setAttribute("x", iconSize + iconSpacing);
+        legendItem.setAttribute("y", offset);
+        legendItem.textContent = key.replace(/-upper$/, ""); // Descriptive name
+        legendItem.setAttribute("font-size", 40);
+        legendItem.style.cursor = "pointer";
+        // legendItem.setAttribute("dominant-baseline", "middle");
+        legendItem.setAttribute(
+          "data-indicator-id",
+          `indicator-group-${simpleHash(key)}`
+        );
+        legendItem.addEventListener("click", toggleIndicatorVisibility);
+        legendContainer.appendChild(legendItem);
+
+        legendYOffset += 40;
+
+        // Update legendYOffset for the next legend item, assuming it's managed outside this function
+      }
+      function toggleIndicatorVisibility(event) {
+        const indicatorId = event.target.getAttribute("data-indicator-id");
+        const indicatorGroup = document.getElementById(indicatorId);
+
+        if (indicatorGroup) {
+          indicatorGroup.style.display =
+            indicatorGroup.style.display === "none" ? "" : "none";
+        }
+      }
+
+      // create a function that create 45degree trendlines on the chart, destructure trendline object
+      function addTrendLines(trendLines) {
+        const {
+          length: lengths,
+          bounded: bounds,
+          ["column index"]: colIndexes,
+          ["box index"]: boxIndexes,
+          type: types,
+        } = trendLines;
+        const trendLineGroup = cENs("g");
+        trendLineGroup.setAttribute("id", "trend-line-group");
+        // loop over lengths array and get the same index from other arrays put bullish support and bearish resistance below column, bullish resistance and bearish support above column
+        lengths.forEach((length, i) => {
+          const colIndex = colIndexes[i];
+          const boxIndex = boxIndexes[i];
+          const type = types[i];
+          const bound = bounds[i];
+          if (bound !== "external") return;
+          console.log(length, colIndex, boxIndex, type, bound);
+          const direction = /bullish/.test(type) ? 1 : -1;
+          const y1corr = direction === -1 ? 0.4 : -0.3;
+          const y2corr = direction === -1 ? 0 : -0.4;
+          const y1 =
+            bBox.height -
+            (boxIndex + y1corr - matrix_bottom_cut_index - 6.7) * yIncr;
+          // use tan to find y2
+          const y2 = y1 - (length + y2corr) * yIncr * direction;
+          const x1 = (colIndex + 1.2) * xIncr;
+          const x2 = x1 + (length - 0.1) * xIncr;
+          const line = cENs("line");
+          line.setAttribute("x1", x1);
+          line.setAttribute("y1", y1);
+          line.setAttribute("x2", x2);
+          line.setAttribute("y2", y2);
+          line.setAttribute("stroke", direction === -1 ? "red" : "blue");
+          line.setAttribute("stroke-width", 6);
+          trendLineGroup.appendChild(line);
+        });
+        graphContainer.appendChild(trendLineGroup);
+        // add toggle button with the text "Trendlines" at the top right of the chart
+        const trendLineToggle = gEBI("trendline-toggle");
+        trendLineToggle.setAttribute("x", width - 550);
+        trendLineToggle.setAttribute("y", 30);
+        trendLineToggle.addEventListener("click", toggleTrendLines);
+      }
+
+      function toggleTrendLines() {
+        const trendLineGroup = document.getElementById("trend-line-group");
+        if (trendLineGroup) {
+          trendLineGroup.style.display =
+            trendLineGroup.style.display === "none" ? "" : "none";
+        }
+      }
+
+      function addBreakouts(breakOuts) {
+        // destructure the breakout object
+        const {
+          ["column index"]: colIndexes,
+          ["box index"]: boxIndexes,
+          type: types,
+          width: widths,
+          "outer width": outerWidths,
+          trend: trends,
+        } = breakOuts;
+        const breakoutGroup = cENs("g");
+        breakoutGroup.setAttribute("id", "breakout-group");
+        // loop over the colIndexes and get the same index from other arrays to draw the breakout lines
+        colIndexes.forEach((colIndex, i) => {
+          const boxIndex = boxIndexes[i];
+          const type = types[i];
+          const width = widths[i];
+          const outerWidth = outerWidths[i];
+          const trend = trends[i];
+          const y1 =
+            bBox.height -
+            (boxIndex +
+              (trend === -1 ? 0.5 : -0.5) -
+              matrix_bottom_cut_index -
+              6.7) *
+              yIncr;
+          const y2 = y1;
+          const x1 = (colIndex + 2.1) * xIncr;
+          const x2 = x1 - (width - 0.1) * xIncr;
+          const line = cENs("line");
+          line.setAttribute("x1", x1);
+          line.setAttribute("y1", y1);
+          line.setAttribute("x2", x2);
+          line.setAttribute("y2", y2);
+          line.setAttribute("stroke", trend === -1 ? "red" : "blue");
+          line.setAttribute("stroke-width", 6);
+          breakoutGroup.appendChild(line);
+        });
+        graphContainer.appendChild(breakoutGroup);
+        // add toggle button with the text "Breakouts" at the top right of the chart
+        const breakoutToggle = gEBI("breakout-toggle");
+        breakoutToggle.setAttribute("x", width - 900);
+        breakoutToggle.setAttribute("y", 30);
+        breakoutToggle.addEventListener("click", toggleBreakouts);
+      }
+
+      function toggleBreakouts() {
+        const breakoutGroup = document.getElementById("breakout-group");
+        if (breakoutGroup) {
+          breakoutGroup.style.display =
+            breakoutGroup.style.display === "none" ? "" : "none";
+        }
+      }
+
+      function addTitle() {
+        const titleElement = cENs("text");
+        titleElement.setAttribute("x", 0);
+        titleElement.setAttribute("y", 35);
+        titleElement.textContent = title;
+        titleElement.setAttribute("font-size", 50);
+        svgElement.appendChild(titleElement);
+      }
+
+      // create a function that adds gridlines for colums and boxes matching the axes, loop over the matrix and add lines
+      function addGridLines(columnLabels, boxScale, zoomScale) {
+        const opacity = 1;
+        const color = "#cccccc";
+        while (gridGroup.firstChild) {
+          document
+            .getElementById("grid-group")
+            .removeChild(document.getElementById("grid-group").firstChild);
+        }
+        // loop over the columns  and add vertical lines
+        for (
+          let i = -plotMatrix[0].length*2; i < plotMatrix[0].length * 2; i++
+        ) {
+          const xPos = (i + 0.15) * xIncr; // Calculate yPos using the scaled xIncr
+
+          // Create and append line to the gridGroup
+          let line = cENs("line");
+          line.setAttribute("x1", xPos);
+          line.setAttribute("y1", maxY * -2);
+          line.setAttribute("x2", xPos);
+          line.setAttribute("y2", maxY * 2);
+          line.setAttribute("stroke", color);
+          line.setAttribute("stroke-width", 2);
+          line.setAttribute("vector-effect", "non-scaling-stroke");
+          line.setAttribute("opacity", opacity); // Add opacity to the grid lines to make them less prominent
+          gridGroup.appendChild(line);
+        }
+        // loop over the boxScale and add horizontal lines
+        for (let i = -boxScale.length*2; i < boxScale.length * 3; i++) {
+          const yPos = (i + 0.2) * yIncr; // Calculate yPos using the scaled yIncr
+
+          // Create and append line to the gridGroup
+          let line = cENs("line");
+          line.setAttribute("x1", maxX * 2);
+          line.setAttribute("y1", yPos);
+          line.setAttribute("x2", maxX* -2);
+          line.setAttribute("y2", yPos);
+          line.setAttribute("stroke", color);
+          line.setAttribute("stroke-width", 2);
+          line.setAttribute("vector-effect", "non-scaling-stroke");
+          line.setAttribute("opacity", opacity); // Add opacity to the grid lines to make them less prominent
+
+          gridGroup.appendChild(line);
+        }
+
+        // add button to toggle gridlines at the top right of the chart
+        const gridToggle = gEBI("grid-toggle");
+        gridToggle.setAttribute("x", width - 1250);
+        gridToggle.setAttribute("y", 30);
+        gridToggle.style.cursor = "pointer";
+        gridToggle.addEventListener("click", toggleGridLines);
+      }
+
+      function toggleGridLines() {
+        const gridGroup = document.getElementById("grid-group");
+        if (gridGroup) {
+          gridGroup.style.display =
+            gridGroup.style.display === "none" ? "" : "none";
+        }
+      }
+
+      addSymbolsFromMatrix(plotMatrix, 50);
+      addIndicators(indicators);
+      addYAxis(plotBoxScale, zoomScale);
+      addXAxis(columnLabels, zoomScale);
+      updateYAxisAlignment();
+      updateXAxisAlignment();
+      addTrendLines(trendLines);
+      addBreakouts(breakOuts);
+      addGridLines(columnLabels, plotBoxScale, zoomScale);
+      addTitle();
+
+      const container = document.getElementById("container");
+
+      let startPoint = { x: 0, y: 0 };
+
+      container.addEventListener("mousedown", function (event) {
+        isPanning = true;
+        startPoint = convertScreenToSVG(event, svgElement);
+      });
+
+      container.addEventListener("mousemove", function (event) {
+        if (isPanning) {
+          const newPoint = convertScreenToSVG(event, svgElement);
+          const dx = newPoint.x - startPoint.x;
+          const dy = newPoint.y - startPoint.y;
+
+          // Update panX and panY here based on dx, dy
+          panX += dx;
+          panY += dy;
+          updateTransform();
+
+          startPoint = newPoint; // Update start point for the next move
+        }
+      });
+
+      container.addEventListener("mouseup", function () {
+        isPanning = false;
+      });
+      window.addEventListener("mouseup", function () {
+        isPanning = false;
+      });
+      let initialDistance = 0;
+      // add handler for touch events
+      container.addEventListener("touchstart", function (event) {
+        if (event.touches.length === 1) {
+          isPanning = true;
+          startPoint = convertScreenToSVG(event.touches[0], svgElement);
+        } else if (event.touches.length === 2) {
+          // Handle start of pinch zoom here
+          initialDistance = getDistance(event.touches[0], event.touches[1]);
+        }
+      });
+      container.addEventListener("touchmove", function (event) {
+        event.preventDefault();
+        if (event.touches.length === 1) {
+          if (isPanning) {
+            const newPoint = convertScreenToSVG(event.touches[0], svgElement);
+            const dx = newPoint.x - startPoint.x;
+            const dy = newPoint.y - startPoint.y;
+
+            // Update panX and panY here based on dx, dy
+            panX += dx;
+            panY += dy;
+            updateTransform();
+
+            startPoint = newPoint; // Update start point for the next move
+          }
+        } else if (event.touches.length === 2) {
+          // Handle pinch zoom here
+          const currentDistance = getDistance(
+            event.touches[0],
+            event.touches[1]
+          );
+          updateZoomScale(zoomScale, currentDistance / initialDistance);
+        }
+      });
+      // add handler for touch events to stop moving the chart when the user stops touching the screen
+      container.addEventListener("touchend", function () {
+        isPanning = false;
+      });
+
+      function getDistance(touch1, touch2) {
+        const dx = touch1.clientX - touch2.clientX;
+        const dy = touch1.clientY - touch2.clientY;
+        return Math.sqrt(dx * dx + dy * dy);
+      }
+
+      function convertScreenToSVG(event, svgElement) {
+        const point = svgElement.createSVGPoint();
+        point.x = event.clientX;
+        point.y = event.clientY;
+        const ctm = svgElement.getScreenCTM();
+        if (ctm) {
+          const inverse = ctm.inverse();
+          const svgPoint = point.matrixTransform(inverse);
+          return { x: svgPoint.x, y: svgPoint.y };
+        }
+        return { x: 0, y: 0 }; // Fallback in case of no CTM
+      }
+      function updateZoomScale(oldZoomScale, newZoomScale) {
+        const rightSideBeforeZoom = panX + bBox.width * oldZoomScale;
+        const centerYBeforeZoom = panY + (bBox.height / 2) * oldZoomScale;
+
+        zoomScale = newZoomScale;
+
+        // Adjust panX to keep the right side stationary
+        const rightSideAfterZoom = panX + bBox.width * newZoomScale;
+        panX += rightSideBeforeZoom - rightSideAfterZoom;
+
+        // Adjust panY to keep the middle of the visible part stationary
+        const centerYAfterZoom = panY + (bBox.height / 2) * newZoomScale;
+        panY += centerYBeforeZoom - centerYAfterZoom;
+
+        updateTransform();
+      }
+      container.addEventListener("wheel", function (e) {
+        e.preventDefault();
+        updateZoomScale(
+          zoomScale,
+          e.deltaY > 0 ? zoomScale * 0.95 : zoomScale * 1.05
+        );
+      });
+      // add handler for pinch zoom
+
+      window.addEventListener("keydown", function (e) {
+        switch (e.key) {
+          case "ArrowUp":
+            panY += 1000; // Moves the content up
+            break;
+          case "ArrowDown":
+            panY -= 1000; // Moves the content down
+            break;
+          case "ArrowLeft":
+            panX += 1000; // Moves the content to the left
+            break;
+          case "ArrowRight":
+            panX -= 1000; // Moves the content to the right
+            break;
+          default:
+            return; // Exit this handler for other keys
+        }
+        e.preventDefault(); // Prevent the default action (scroll / move caret)
+        updateTransform();
+      });
+      function updateTransform() {
+        zoomContainer.setAttribute(
+          "transform",
+          `translate(${panX}, ${panY}) scale(${zoomScale})`
+        );
+        addYAxis(plotBoxScale, zoomScale);
+        addXAxis(columnLabels, zoomScale);
+
+        updateYAxisAlignment();
+        updateXAxisAlignment();
+      }
+
+      window.addEventListener("gesturestart", (e) => e.preventDefault());
+      window.addEventListener("gesturechange", (e) => e.preventDefault());
+      window.addEventListener("gestureend", (e) => e.preventDefault());
+
+      function simpleHash(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          const char = str.charCodeAt(i);
+          hash = (hash << 5) - hash + char;
+          hash = hash & hash; // Convert to 32bit integer
+        }
+        return `${Math.abs(hash)}`; // Ensure the ID is positive
+      }
+    </script>
+  </body>
+</html>
