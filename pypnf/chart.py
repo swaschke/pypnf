@@ -31,6 +31,8 @@ from matplotlib.lines import Line2D
 from tabulate import tabulate
 from warnings import warn
 
+BULLISH = 1
+BEARISH = -1
 
 class PointFigureChart:
     """ Class to build a Point and Figure Chart from time series data
@@ -145,6 +147,16 @@ class PointFigureChart:
         self.matrix = self._pnf_timeseries2matrix()
         self.column_labels = self._get_column_entry_dates()
 
+        # extend boxscale for 1-box reversal charts in order to be able to get count targets
+        # in case the width of the matrix is greater then the height.
+        if self.reversal == 1:
+            if np.shape(self.matrix)[1] > np.shape(self.matrix)[0]:
+                overscan = np.shape(self.matrix)[1] * 3
+                self.boxscale = self._get_boxscale_basic(overscan=overscan)
+                self.pnf_timeseries = self._get_pnf_timeseries()
+                self.action_index_matrix = None  # assigned in _pnf_timeseries2matrix()
+                self.matrix = self._pnf_timeseries2matrix()
+
         # trendlines
         self.trendlines = None
         self.show_trendlines = False  # 'external', 'internal', 'both', False, 'False'
@@ -156,6 +168,14 @@ class PointFigureChart:
         self.show_breakouts = False
         self.bullish_breakout_color = 'g'
         self.bearish_breakout_color = 'm'
+
+        # counts
+        self.counts = None
+        self.show_counts = False  # 'vertical', 'horizontal', 'all'
+        self.show_last_counts = False  # integer
+        self.bullish_count_color = 'b'
+        self.bearish_count_color = 'r'
+        self.horizontal_count_min_len = 5
 
         # indicator
         self.column_midpoints = None
@@ -245,7 +265,7 @@ class PointFigureChart:
     def _is_valid_reversal(reversal):
 
         if not isinstance(reversal, int):
-            ValueError('Value for reversal must be an integer. Reversal is usually between 1 and 5.')
+            raise ValueError('Value for reversal must be an integer. Reversal is usually between 1 and 5.')
 
         return reversal
 
@@ -272,7 +292,7 @@ class PointFigureChart:
                 raise ValueError('ValueError: The smallest possible boxsize for log-scaled axis is 0.01%')
 
         elif self.scaling == 'abs':
-            if boxsize < 0:
+            if boxsize <= 0:
                 raise ValueError('ValueError: The boxsize must be a value greater than 0.')
                 
         elif self.scaling == 'atr':
@@ -429,11 +449,10 @@ class PointFigureChart:
 
         return ts
 
-    def _get_boxscale(self, overscan=None):
+    def _get_boxscale_basic(self, overscan=None):
         """
-        creates the box scale for Point and Figure Chart
+        Basic code to create the boxscale
         """
-
         if self.method == 'cl':
             minimum = np.min(self.ts['close'])
             maximum = np.max(self.ts['close'])
@@ -450,7 +469,7 @@ class PointFigureChart:
 
         # define range for overscan. If no value is given take the reversal
         if overscan is None:
-            overscan = 20  # self.reversal
+            overscan = self.reversal
 
         if type(overscan) == int:
             overscan_bot = overscan
@@ -462,21 +481,20 @@ class PointFigureChart:
         # make scale for absolute scaling
         if self.scaling == 'abs' or self.scaling == 'atr':
             if self.scaling == 'atr':
-                
                 # Calculate components of the True Range
-                p = self.boxsize == 'total' and len(self.ts['close'])-1 or self.boxsize
+                p = self.boxsize == 'total' and len(self.ts['close']) - 1 or self.boxsize
                 high_low = self.ts['high'][-p:] - self.ts['low'][-p:]
-                high_close_prev = np.abs(self.ts['high'][-p:] - self.ts['close'][-p-1:-1])
-                low_close_prev = np.abs(self.ts['low'][-p:] - self.ts['close'][-p-1:-1])
-                
+                high_close_prev = np.abs(self.ts['high'][-p:] - self.ts['close'][-p - 1:-1])
+                low_close_prev = np.abs(self.ts['low'][-p:] - self.ts['close'][-p - 1:-1])
+
                 # Combine and find the maximum for each day to get the True Range, excluding the first day due to shift
                 true_range = np.maximum(np.maximum(high_low, high_close_prev), low_close_prev)
-                
+
                 # Calculate a single average value for the True Range, to be used as the box size
                 self.boxsize = np.mean(true_range)
-                
+
                 self.scaling = 'abs'
-                
+
             decimals = len(str(self.boxsize).split(".")[-1])
 
             boxes = np.array(np.float64([0]))
@@ -540,6 +558,23 @@ class PointFigureChart:
             end = np.where(boxes > maximum)[-1][0] + overscan_top
 
             boxes = boxes[start:end]
+
+        return boxes
+
+    def _get_boxscale(self):
+        """
+        creates the box scale for Point and Figure Chart
+        """
+
+        boxes = self._get_boxscale_basic(overscan=0)
+
+        # extend the boxscale to be able to get count targets
+        if self.reversal > 1:
+            overscan = len(boxes) * self.reversal + self.reversal
+        else:
+            overscan = len(boxes) * 3
+
+        boxes = self._get_boxscale_basic(overscan=overscan)
 
         return boxes
 
@@ -648,7 +683,7 @@ class PointFigureChart:
 
             # the Box index can not be zero
             if iB - 1 < 1:
-                iB = 1 + 1
+                iB = 1 + reversal
 
             # check if there is a further 'O' in the trend
             if P <= Boxes[iB - 1]:
@@ -695,8 +730,8 @@ class PointFigureChart:
 
         C = C[iD:]
 
-        for n, C in enumerate(C):
-            [Box, iB, iC, TF, fB] = self._basic(C, iB, iC, TF, fB)
+        for n, c in enumerate(C):
+            [Box, iB, iC, TF, fB] = self._basic(c, iB, iC, TF, fB)
             ts[iD + n, :] = [Box, iB, iC, TF, fB]
 
         return ts
@@ -754,7 +789,7 @@ class PointFigureChart:
 
                 # the Box index can not be zero
                 if iB - 1 < 1:
-                    iB = 1 + 1
+                    iB = 1 + reversal
 
                 # check if there is a further 'O' in the trend
                 if L[n] <= Boxes[iB - 1]:
@@ -774,7 +809,7 @@ class PointFigureChart:
                             iC = iC - 1  # set column to previous column
                             fB = fB + 1  # calculate number of filled Boxes
 
-            ts[n, :] = [Box, iB, iC, TF, fB]
+                ts[n, :] = [Box, iB, iC, TF, fB]
 
         return ts
 
@@ -824,6 +859,10 @@ class PointFigureChart:
                         [Box, iB, iC, TF, fB] = self._basic(H[n], iB, iC, TF, fB)
 
             elif TF == -1:
+
+                # the Box index can not be zero
+                if iB - 1 < 1:
+                    iB = 1 + reversal
 
                 # check for reversal
                 if H[n] >= Boxes[iB + reversal]:
@@ -905,7 +944,7 @@ class PointFigureChart:
 
                 # the Box index can not be zero
                 if iB - 1 < 1:
-                    iB = 1 + 1
+                    iB = 1 + reversal
 
                 # check if there is a further 'O' in the trend
                 if C[n] <= Boxes[iB - 1]:
@@ -974,6 +1013,10 @@ class PointFigureChart:
                     elif C[n - 1] > C[n]:
                         tP = [O[n], L[n], H[n], C[n]]
 
+                    # flat close-to-close: default to bullish ordering
+                    else:
+                        tP = [O[n], H[n], L[n], C[n]]
+
                 else:
                     tP = [O[n], H[n], L[n], C[n]]
 
@@ -987,11 +1030,12 @@ class PointFigureChart:
         # set the new time-series as close
         self.ts['close'] = P
 
-        # determine the fist box entry
-        [iD, Box, iB, iC, TF, fB] = self._get_first_trend()
-
-        # restore initial close
-        self.ts['close'] = close
+        try:
+            # determine the first box entry
+            [iD, Box, iB, iC, TF, fB] = self._get_first_trend()
+        finally:
+            # restore initial close even if _get_first_trend raises
+            self.ts['close'] = close
 
         ts = np.zeros([np.size(P), 5])
 
@@ -1120,7 +1164,7 @@ class PointFigureChart:
             mtx[iB[0], 0] = 1
             self.action_index_matrix[iB[0], 0] = iTS[0]
         elif TF[0] == -1:
-            mtx[iB[1], 0] = -1
+            mtx[iB[0], 0] = -1
             self.action_index_matrix[iB[0], 0] = iTS[0]
 
         # mark the other boxes
@@ -1148,7 +1192,6 @@ class PointFigureChart:
 
         return mtx
 
-
     def get_breakouts(self):
         """
         Gets the breakouts of an PointFigureChart object
@@ -1158,6 +1201,11 @@ class PointFigureChart:
 
         breakouts: dict
             The dict contains following keys:
+        breakouts['date']:
+            Array of int/dates: Dates when the breakouts occurred. If no date provided in the time series
+            this array is equal to breakouts['ts index'].
+        breakouts['ts index']:
+            Array of int: Indices of the time series of when a breakout occurs.
         breakouts['trend']:
             Array of int: 1 for bullish breakouts and -1 for bearish breakouts
         breakouts['type']:
@@ -1196,22 +1244,25 @@ class PointFigureChart:
         row_bear, col_bear = np.where(T == -1)
 
         # initiate dictionary
-        keys = ['ts index','trend', 'type', 'column index', 'box index', 'hits', 'width', 'outer width']
+        keys = ['date', 'ts index','trend', 'type', 'column index', 'box index', 'hits', 'width', 'outer width']
         bo = {}
         for key in keys:
             bo[key] = np.zeros(np.size(row_bull) + np.size(row_bear)).astype(int)
+
         bo['type'] = bo['type'].astype(str)
 
         if isinstance(self.ts['date'][0], np.datetime64):
-            bo['ts index'] = bo['ts index'].astype(f'''datetime64[{self.time_step}]''')
+            bo['date'] = bo['date'].astype(f'''datetime64[{self.time_step}]''')
         elif isinstance(self.ts['date'][0], str):
-            bo['ts index'] = bo['ts index'].astype(f'''datetime64[{self.time_step}]''')
+            bo['date'] = bo['date'].astype(f'''datetime64[{self.time_step}]''')
         else:
-            bo['ts index'] = bo['ts index'].astype(int)
+            bo['date'] = bo['date'].astype(int)
 
         # assign trends
         bo['trend'][0:np.size(row_bull)] = 1
         bo['trend'][np.size(row_bull):np.size(row_bull) + np.size(row_bear)] = -1
+
+        ohlc_scale = 4 if self.method == 'ohlc' else 1
 
         # bullish breakouts
         if np.any(row_bull):
@@ -1220,7 +1271,18 @@ class PointFigureChart:
 
                 bo['box index'][n] = row_bull[n]
                 bo['column index'][n] = col_bull[n]
-                bo['ts index'][n] = self.ts['date'][self.action_index_matrix[row_bull[n], col_bull[n]]]
+                aim_idx = self.action_index_matrix[row_bull[n], col_bull[n]] // ohlc_scale
+                bo['date'][n] = self.ts['date'][aim_idx]
+
+                # look here for the index in case there is a date given
+                if isinstance(self.ts['date'][0], np.datetime64):
+                    index = np.where(self.ts['date']==bo['date'][n])[0][0]
+                    bo['ts index'][n] = index
+                elif isinstance(self.ts['date'][0], str):
+                    index = np.where(self.ts['date'] == bo['date'][n])[0][0]
+                    bo['ts index'][n] = index
+                else:
+                    bo['ts index'][n] = bo['date'][n].astype(int)
 
                 hRL = mtx[row_bull[n] - 1, 0:col_bull[n] + 1]  # horizontal resistance line
                 boL = mtx[row_bull[n], 0:col_bull[n] + 1]  # breakout line
@@ -1232,6 +1294,7 @@ class PointFigureChart:
 
                 if np.any(np.where(hRL == 1)):
                     k = np.where(hRL == 1)[0]
+                    # k = np.where(hRL == 1)[-1]
                 else:
                     k = 0
 
@@ -1247,39 +1310,51 @@ class PointFigureChart:
                 elif np.size(k) >= 2:
                     bo['outer width'][n] = k[-1] + 1
 
-                if z >= 1:
 
-                    if mtx[row_bull[n], z - 1] == 0 and mtx[row_bull[n], z] == 1:
-                        bo['type'][n] = 'resistance'
+                if mtx[row_bull[n], z] == 0:
+                    bo['type'][n] = 'conti'
 
-                    elif mtx[row_bull[n], z - 1] == 1 and mtx[row_bull[n], z] == 1:
-                        bo['type'][n] = 'resistance'
+                elif mtx[row_bull[n], z] == 1:
+                    bo['type'][n] = 'conti'
 
-                    elif mtx[row_bull[n], z - 1] == -1 and mtx[row_bull[n], z] == -1:
-                        bo['type'][n] = 'fulcrum'
+                elif mtx[row_bull[n], z] == -1:
+                    bo['type'][n] = 'reversal'
 
-                    elif mtx[row_bull[n], z - 1] == -1 and mtx[row_bull[n], z] == 1:
-                        bo['type'][n] = 'reversal'
-
-                    elif mtx[row_bull[n], z - 1] == 0 and mtx[row_bull[n], z] == -1:
-                        bo['type'][n] = 'reversal'
-
-                    elif mtx[row_bull[n], z - 1] == 1 and mtx[row_bull[n], z] == -1:
-                        bo['type'][n] = 'reversal'
-
-                    elif mtx[row_bull[n], z - 1] == 0 and mtx[row_bull[n], z] == 0:
-                        bo['type'][n] = 'conti'
-
-                elif z == 0:
-
-                    if mtx[row_bull[n], z] == 0:
-                        bo['type'][n] = 'conti'
-
-                    elif mtx[row_bull[n], z] == 1:
-                        bo['type'][n] = 'conti'
-
-                    elif mtx[row_bull[n], z] == -1:
-                        bo['type'][n] = 'reversal'
+                # if z >= 1:
+                #
+                #     if mtx[row_bull[n], z - 1] == 0 and mtx[row_bull[n], z] == 1:
+                #         bo['type'][n] = 'resistance'
+                #
+                #     elif mtx[row_bull[n], z - 1] == 1 and mtx[row_bull[n], z] == 1:
+                #         bo['type'][n] = 'resistance'
+                #
+                #     elif mtx[row_bull[n], z - 1] == -1 and mtx[row_bull[n], z] == -1:
+                #         bo['type'][n] = 'fulcrum'
+                #
+                #     elif mtx[row_bull[n], z - 1] == -1 and mtx[row_bull[n], z] == 1:
+                #         # bo['type'][n] = 'reversal'
+                #         bo['type'][n] = 'conti'
+                #
+                #     elif mtx[row_bull[n], z - 1] == 0 and mtx[row_bull[n], z] == -1:
+                #         bo['type'][n] = 'reversal'
+                #         # bo['type'][n] = 'conti'
+                #
+                #     elif mtx[row_bull[n], z - 1] == 1 and mtx[row_bull[n], z] == -1:
+                #         bo['type'][n] = 'reversal'
+                #
+                #     elif mtx[row_bull[n], z - 1] == 0 and mtx[row_bull[n], z] == 0:
+                #         bo['type'][n] = 'conti'
+                #
+                # elif z == 0:
+                #
+                #     if mtx[row_bull[n], z] == 0:
+                #         bo['type'][n] = 'conti'
+                #
+                #     elif mtx[row_bull[n], z] == 1:
+                #         bo['type'][n] = 'conti'
+                #
+                #     elif mtx[row_bull[n], z] == -1:
+                #         bo['type'][n] = 'reversal'
 
                 if np.size(k) >= 2:
                     bo['hits'][n] = np.size(k)
@@ -1296,6 +1371,7 @@ class PointFigureChart:
                         bo['hits'] = np.append(bo['hits'], np.sum(mtx[row_bull[n] - 1, k[p]:k[-1] + 1]))
                         bo['width'] = np.append(bo['width'], [k[-1] - k[p] + 1])
                         bo['outer width'] = np.append(bo['outer width'], bo['outer width'][n])
+                        bo['date'] = np.append(bo['date'], bo['date'][n])
                         bo['ts index'] = np.append(bo['ts index'], bo['ts index'][n])
 
         # bearish breakouts
@@ -1305,7 +1381,19 @@ class PointFigureChart:
 
                 bo['box index'][np.size(row_bull) + n] = row_bear[n]
                 bo['column index'][np.size(row_bull) + n] = col_bear[n]
-                bo['ts index'][np.size(row_bull) + n] = self.ts['date'][self.action_index_matrix[row_bull[n], col_bull[n]]]
+                aim_idx = self.action_index_matrix[row_bear[n], col_bear[n]] // ohlc_scale
+                bo['date'][np.size(row_bull) + n] = self.ts['date'][aim_idx]
+                #bo['ts index'][np.size(row_bull) + n] = self.ts['date'][self.action_index_matrix[row_bull[n], col_bull[n]]]
+
+                # look here for the index in case there is a date given
+                if isinstance(self.ts['date'][0], np.datetime64):
+                    index = np.where(self.ts['date']==bo['date'][np.size(row_bull) + n])[0][0]
+                    bo['ts index'][np.size(row_bull) + n] = index
+                elif isinstance(self.ts['date'][0], str):
+                    index = np.where(self.ts['date'] == bo['date'][np.size(row_bull) + n])[0][0]
+                    bo['ts index'][np.size(row_bull) + n] = index
+                else:
+                    bo['ts index'][np.size(row_bull) + n] = bo['date'][np.size(row_bull) + n].astype(int)
 
                 hRL = mtx[row_bear[n] + 1, 0:col_bear[n] + 1]  # horizontal resistance line
                 boL = mtx[row_bear[n], 0:col_bear[n] + 1]  # breakout line
@@ -1334,37 +1422,46 @@ class PointFigureChart:
                 elif np.size(k) >= 2:
                     bo['outer width'][np.size(row_bull) + n] = k[-1] + 1
 
-                if z >= 1:
+                if mtx[row_bear[n], z] == 0:
+                    bo['type'][np.size(row_bull) + n] = 'conti'
+                elif mtx[row_bear[n], z] == -1:
+                    bo['type'][np.size(row_bull) + n] = 'conti'
+                elif mtx[row_bear[n], z] == 1:
+                    bo['type'][np.size(row_bull) + n] = 'reversal'
 
-                    if mtx[row_bear[n], z - 1] == 0 and mtx[row_bear[n], z] == -1:
-                        bo['type'][np.size(row_bull) + n] = 'resistance'
-
-                    elif mtx[row_bear[n], z - 1] == -1 and mtx[row_bear[n], z] == -1:
-                        bo['type'][np.size(row_bull) + n] = 'resistance'
-
-                    elif mtx[row_bear[n], z - 1] == 1 and mtx[row_bear[n], z] == 1:
-                        bo['type'][np.size(row_bull) + n] = 'reversal'
-
-                    elif mtx[row_bear[n], z - 1] == 1 and mtx[row_bear[n], z] == -1:
-                        bo['type'][np.size(row_bull) + n] = 'reversal'
-
-                    elif mtx[row_bear[n], z - 1] == 0 and mtx[row_bear[n], z] == 1:
-                        bo['type'][np.size(row_bull) + n] = 'reversal'
-
-                    elif mtx[row_bear[n], z - 1] == -1 and mtx[row_bear[n], z] == 1:
-                        bo['type'][np.size(row_bull) + n] = 'reversal'
-
-                    elif mtx[row_bear[n], z - 1] == 0 and mtx[row_bear[n], z] == 0:
-                        bo['type'][np.size(row_bull) + n] = 'conti'
-
-                elif z == 0:
-
-                    if mtx[row_bear[n], z] == 0:
-                        bo['type'][np.size(row_bull) + n] = 'conti'
-                    elif mtx[row_bear[n], z] == -1:
-                        bo['type'][np.size(row_bull) + n] = 'conti'
-                    elif mtx[row_bear[n], z] == 1:
-                        bo['type'][np.size(row_bull) + n] = 'reversal'
+                # if z >= 1:
+                #
+                #     if mtx[row_bear[n], z - 1] == 0 and mtx[row_bear[n], z] == -1:
+                #         bo['type'][np.size(row_bull) + n] = 'resistance'
+                #
+                #     elif mtx[row_bear[n], z - 1] == -1 and mtx[row_bear[n], z] == -1:
+                #         bo['type'][np.size(row_bull) + n] = 'resistance'
+                #
+                #     elif mtx[row_bear[n], z - 1] == 1 and mtx[row_bear[n], z] == 1:
+                #         bo['type'][np.size(row_bull) + n] = 'reversal'
+                #
+                #     elif mtx[row_bear[n], z - 1] == 1 and mtx[row_bear[n], z] == -1:
+                #         bo['type'][np.size(row_bull) + n] = 'reversal'
+                #
+                #     elif mtx[row_bear[n], z - 1] == 0 and mtx[row_bear[n], z] == 1:
+                #         bo['type'][np.size(row_bull) + n] = 'reversal'
+                #         # bo['type'][np.size(row_bull) + n] = 'conti'
+                #
+                #     elif mtx[row_bear[n], z - 1] == -1 and mtx[row_bear[n], z] == 1:
+                #         bo['type'][np.size(row_bull) + n] = 'reversal'
+                #         # bo['type'][np.size(row_bull) + n] = 'conti'
+                #
+                #     elif mtx[row_bear[n], z - 1] == 0 and mtx[row_bear[n], z] == 0:
+                #         bo['type'][np.size(row_bull) + n] = 'conti'
+                #
+                # elif z == 0:
+                #
+                #     if mtx[row_bear[n], z] == 0:
+                #         bo['type'][np.size(row_bull) + n] = 'conti'
+                #     elif mtx[row_bear[n], z] == -1:
+                #         bo['type'][np.size(row_bull) + n] = 'conti'
+                #     elif mtx[row_bear[n], z] == 1:
+                #         bo['type'][np.size(row_bull) + n] = 'reversal'
 
                 if np.size(k) >= 2:
                     bo['hits'][np.size(row_bull) + n] = np.size(k)
@@ -1381,7 +1478,9 @@ class PointFigureChart:
                         bo['hits'] = np.append(bo['hits'], np.abs(np.sum(mtx[row_bear[n] + 1, k[p]:k[-1] + 1])))
                         bo['width'] = np.append(bo['width'], [k[-1] - k[p] + 1])
                         bo['outer width'] = np.append(bo['outer width'], bo['outer width'][np.size(row_bull) + n])
+                        bo['date'] = np.append(bo['date'], bo['date'][np.size(row_bull) + n])
                         bo['ts index'] = np.append(bo['ts index'], bo['ts index'][np.size(row_bull) + n])
+
 
         # find index without entries:
         x = np.argwhere(bo['hits'] == 0)
@@ -1400,7 +1499,7 @@ class PointFigureChart:
 
     def get_trendlines(self, length=4, mode='strong'):
         """
-        Gets trendlines of an PointfigChart object
+        Gets trendlines of an PointFigureChart object
 
         Parameter:
         ==========
@@ -1446,11 +1545,13 @@ class PointFigureChart:
 
             if np.sum(mtx[:, 0]) > 0:
                 idx = np.where(mtx[:, 0] != 0)[0][-1]
-                mtx[idx - 1, 0] = 1
+                if idx > 0:
+                    mtx[idx - 1, 0] = 1
 
-            elif np.sum(mtx[:, 0]) > 0:
+            elif np.sum(mtx[:, 0]) < 0:
                 idx = np.where(mtx[:, 0] != 0)[0][0]
-                mtx[idx + 1, 0] = 1
+                if idx < np.size(mtx, 0) - 1:
+                    mtx[idx + 1, 0] = 1
 
         # find high and low index for each column; sign indicates trend direction
         T = [np.repeat([np.arange(1, np.size(mtx, 0) + 1, 1)], np.size(mtx, 1), axis=0)][0].transpose() * mtx
@@ -1594,8 +1695,14 @@ class PointFigureChart:
 
         # find first trendline
         col = 0
-        while np.sum(np.abs(tl_mtx[:, col])) == 0:
+        while col < np.size(tl_mtx, 1) and np.sum(np.abs(tl_mtx[:, col])) == 0:
             col = col + 1
+
+        if col >= np.size(tl_mtx, 1):
+            self.trendlines = {'bounded': np.array([]), 'type': np.array([]),
+                               'length': np.array([]), 'column index': np.array([]),
+                               'box index': np.array([])}
+            return self.trendlines
 
         # initiate variables for the lookup of external trendlines
         iB = np.argwhere(tl_mtx[:, col] != 0)[0]  # index of last Box
@@ -1677,13 +1784,14 @@ class PointFigureChart:
                     col = col + np.size(check)
                     span = 1
 
-                    while np.sum(np.sum(np.abs(tl_mtx[:, col:col + span]), 0)) == 0:
+                    while col + span < np.size(tl_mtx, 1) and np.sum(np.sum(np.abs(tl_mtx[:, col:col + span]), 0)) == 0:
                         span = span + 1
 
                     col = col + span - 1
-                    span = np.abs(np.sum(tl_mtx[:, col]))
-                    tF = np.sign(np.sum(tl_mtx[:, col]))
-                    tl_vec[col] = span * tF
+                    if col < np.size(tl_mtx, 1):
+                        span = np.abs(np.sum(tl_mtx[:, col]))
+                        tF = np.sign(np.sum(tl_mtx[:, col]))
+                        tl_vec[col] = span * tF
 
             elif tF == -1:
 
@@ -1715,13 +1823,14 @@ class PointFigureChart:
                     col = col + np.size(check)
                     span = 1
 
-                    while np.sum(np.sum(np.abs(tl_mtx[:, col:col + span]), 0)) == 0:
+                    while col + span < np.size(tl_mtx, 1) and np.sum(np.sum(np.abs(tl_mtx[:, col:col + span]), 0)) == 0:
                         span = span + 1
 
                     col = col + span - 1
-                    span = np.abs(np.sum(tl_mtx[:, col]))
-                    tF = np.sign(np.sum(tl_mtx[:, col]))
-                    tl_vec[col] = span * tF
+                    if col < np.size(tl_mtx, 1):
+                        span = np.abs(np.sum(tl_mtx[:, col]))
+                        tF = np.sign(np.sum(tl_mtx[:, col]))
+                        tl_vec[col] = span * tF
 
             loop_run += 1
 
@@ -1777,6 +1886,393 @@ class PointFigureChart:
         self.trendlines = tlines
 
         return tlines
+
+
+    @classmethod
+    def _assign_counts_to_dict(cls, counts, n, values):
+        for key, value in values.items():
+            counts[key][n] = value
+        return counts
+
+    @classmethod
+    def count_percent_filled(cls, count_matrix, width):
+        num_filled = np.sum(np.abs(count_matrix))
+        height = np.size(count_matrix, 0)
+        max_filled = (width-1) * (height-1) + height
+        percent_filled = np.round(num_filled / max_filled, 2)
+
+        return percent_filled
+
+    def counts_reversal_greater_1(self, counts):
+
+        sort = 'vertical'
+        # anchor point is row below anchor column
+
+        n = 0
+        for (date, ts_index, column_index,
+             box_index, width, trend) in zip(self.breakouts['date'],
+                                             self.breakouts['ts index'],
+                                             self.breakouts['column index'],
+                                             self.breakouts['box index'],
+                                             self.breakouts['width'],
+                                             self.breakouts['trend']):
+
+            # slice of matrix containing the current outbreak
+            A = self.matrix[:, column_index - width + 1:column_index + 1]
+            B = np.sum(np.abs(A), 1)
+
+            if trend == BULLISH:
+
+                min_index = np.where(B != 0)[0][0]
+
+                # matrix containing only columns and rows of the signal
+                count_matrix = self.matrix[min_index:box_index, column_index - width + 1:column_index + 1]
+
+                perc_filled = PointFigureChart.count_percent_filled(count_matrix, width)
+
+                if count_matrix[0, 0] == BULLISH:  # condition for valid count columns
+
+                    length = np.sum(np.abs(self.matrix[:, column_index - width + 1]))
+                    anchor_box_index = min_index - 1
+
+                    target_index = int(anchor_box_index + (length * self.reversal))
+
+                    target = self.boxscale[target_index]
+
+                    reward = target - self.boxscale[box_index]
+
+                    risk1 = self.boxscale[box_index] - self.boxscale[np.where(A[:, -2] != 0)[0][0] - 1]
+                    risk2 = self.boxscale[box_index] - self.boxscale[min_index - 1]
+
+                    ratio1 = np.round(reward / risk1, 2)
+                    ratio2 = np.round(reward / risk2, 2)
+
+                    anchor_col = column_index - width + 1
+                    anchor_box = self.boxscale[anchor_box_index]
+
+                    box = self.boxscale[box_index]
+
+                    counts = PointFigureChart._assign_counts_to_dict(counts, n, {
+                        'date': date, 'ts index': ts_index, 'trend': trend, 'type': sort,
+                        'column index': column_index, 'box index': box_index, 'box': box,
+                        'anchor column': anchor_col, 'anchor box': anchor_box, 'length': width,
+                        'target index': target_index, 'target': target, 'reward': reward,
+                        'risk 1': risk1, 'risk 2': risk2, 'ratio 1': ratio1, 'ratio 2': ratio2,
+                        'quality': perc_filled})
+
+            elif trend == BEARISH:
+
+                max_index = np.where(B != 0)[0][-1]
+
+                count_matrix = self.matrix[box_index + 1:max_index + 1, column_index - width + 1:column_index + 1]
+
+                perc_filled = PointFigureChart.count_percent_filled(count_matrix, width)
+
+                if count_matrix[-1, 0] == BEARISH:  # condition for valid count columns
+
+                    length = np.sum(np.abs(self.matrix[:, column_index - width + 1]))
+
+                    anchor_box_index = max_index + 1
+
+                    target_index = int(anchor_box_index - (length * self.reversal))
+
+                    if target_index < 0:
+                        target_index = 0
+
+                    target = self.boxscale[target_index]
+
+                    reward = self.boxscale[box_index] - target
+
+                    risk1 = self.boxscale[np.where(A[:, -2] != 0)[0][-1] + 1] - self.boxscale[box_index]
+                    risk2 = self.boxscale[max_index + 1] - self.boxscale[box_index]
+
+                    ratio1 = np.round(reward / risk1, 2)
+                    ratio2 = np.round(reward / risk2, 2)
+
+                    anchor_col = column_index - width + 1
+                    anchor_box = self.boxscale[anchor_box_index]
+
+                    box = self.boxscale[box_index]
+
+                    counts = PointFigureChart._assign_counts_to_dict(counts, n, {
+                        'date': date, 'ts index': ts_index, 'trend': trend, 'type': sort,
+                        'column index': column_index, 'box index': box_index, 'box': box,
+                        'anchor column': anchor_col, 'anchor box': anchor_box, 'length': width,
+                        'target index': target_index, 'target': target, 'reward': reward,
+                        'risk 1': risk1, 'risk 2': risk2, 'ratio 1': ratio1, 'ratio 2': ratio2,
+                        'quality': perc_filled})
+
+            n = n + 1
+
+        sort = 'horizontal R>1'
+        # count row is the lowest box in the pattern (breakout)
+        # target is "lowest box in pattern" + (Reversal x Width)
+        # reward is target row minus count row
+        # risk 1 is row below the column before the breakout-column
+        # risk 2 is row below the low of the pattern
+
+        for (date, ts_index, column_index,
+             box_index, width, trend, pattern) in zip(self.breakouts['date'],
+                                                      self.breakouts['ts index'],
+                                                      self.breakouts['column index'],
+                                                      self.breakouts['box index'],
+                                                      self.breakouts['outer width'],
+                                                      self.breakouts['trend'],
+                                                      self.breakouts['type']):
+
+            if trend == BULLISH and pattern == 'reversal' and width >= self.horizontal_count_min_len:
+
+                # slice of matrix containing the current outbreak
+                A = self.matrix[:, column_index - width + 1:column_index + 1]
+                B = np.sum(np.abs(A), 1)
+
+                min_index = np.where(B != 0)[0][0] # lowest row in the pattern
+
+                # matrix with signal only
+                count_matrix = self.matrix[min_index:box_index, column_index - width + 2:column_index + 1]
+
+                perc_filled = PointFigureChart.count_percent_filled(count_matrix, width)
+
+                target_index = min_index + (width * self.reversal)
+
+                target = self.boxscale[target_index]
+
+                reward = target - self.boxscale[box_index]
+
+                risk1 = self.boxscale[box_index] - self.boxscale[np.where(A[:, -2] != 0)[0][0] - 1]
+                ratio1 = np.round(reward / risk1, 2)
+
+                risk2 = self.boxscale[box_index] - self.boxscale[min_index - 1]
+                ratio2 = np.round(reward / risk2, 2)
+
+                anchor_col = column_index - width + 1 + np.where(A[min_index, :] != 0)[0][-1]
+                anchor_box = self.boxscale[min_index]
+
+                box = self.boxscale[box_index]
+
+                counts = PointFigureChart._assign_counts_to_dict(counts, n, {
+                    'date': date, 'ts index': ts_index, 'trend': trend, 'type': sort,
+                    'column index': column_index, 'box index': box_index, 'box': box,
+                    'anchor column': anchor_col, 'anchor box': anchor_box, 'length': width,
+                    'target index': target_index, 'target': target, 'reward': reward,
+                    'risk 1': risk1, 'risk 2': risk2, 'ratio 1': ratio1, 'ratio 2': ratio2,
+                    'quality': perc_filled})
+
+            if trend == BEARISH and pattern == 'reversal' and width >= self.horizontal_count_min_len:
+
+                # slice of matrix containing the current outbreak
+                A = self.matrix[:, column_index - width + 1:column_index + 1]
+
+                B = np.sum(np.abs(A), 1)
+                max_index = np.where(B != 0)[0][-1]  # highest row in the pattern
+
+                count_matrix = self.matrix[box_index + 1:max_index + 1, column_index - width + 1:column_index + 1]
+
+                perc_filled = PointFigureChart.count_percent_filled(count_matrix, width)
+
+                target_index = max_index - (width * self.reversal)
+
+                if target_index < 0:
+                    target_index = 0
+
+                target = self.boxscale[target_index]
+                reward = self.boxscale[box_index] - target
+
+                risk1 = self.boxscale[np.where(A[:, -2] != 0)[0][-1] + 1] - self.boxscale[box_index]
+                ratio1 = np.round(reward / risk1, 2)
+
+                risk2 = self.boxscale[max_index + 1] - self.boxscale[box_index]
+                ratio2 = np.round(reward / risk2, 2)
+
+                anchor_col = column_index - np.size(count_matrix, 1) + np.where(count_matrix[-1, :] != 0)[0][-1] - 1
+                anchor_box = self.boxscale[max_index]
+
+                box = self.boxscale[box_index]
+
+                counts = PointFigureChart._assign_counts_to_dict(counts, n, {
+                    'date': date, 'ts index': ts_index, 'trend': trend, 'type': sort,
+                    'column index': column_index, 'box index': box_index, 'box': box,
+                    'anchor column': anchor_col, 'anchor box': anchor_box, 'length': width,
+                    'target index': target_index, 'target': target, 'reward': reward,
+                    'risk 1': risk1, 'risk 2': risk2, 'ratio 1': ratio1, 'ratio 2': ratio2,
+                    'quality': perc_filled})
+            n = n + 1
+
+        return counts
+
+    def counts_reversal_equals_1(self, counts):
+
+        sort = 'horizontal (signal) R=1'
+        # count row is the row where the pattern breaks out
+        # target is count row + width
+        # risk1 row under base of signal column
+        # risk2 row under lowest low
+
+        n = 0
+        for (date, ts_index, column_index,
+             box_index, width, trend, pattern) in zip(self.breakouts['date'],
+                                                      self.breakouts['ts index'],
+                                                      self.breakouts['column index'],
+                                                      self.breakouts['box index'],
+                                                      self.breakouts['outer width'],
+                                                      self.breakouts['trend'],
+                                                      self.breakouts['type']):
+
+            if trend == BULLISH and (pattern == 'reversal' or pattern == 'fulcrum') and width >= self.horizontal_count_min_len:
+                # slice of matrix containing the current outbreak
+                A = self.matrix[:, column_index - width + 1:column_index + 1]
+                B = np.sum(np.abs(A), 1)
+                min_index = np.where(B != 0)[0][0]  # minimum in pattern
+
+                count_matrix = self.matrix[min_index:box_index, column_index - width + 1:column_index + 1]
+
+                perc_filled = PointFigureChart.count_percent_filled(count_matrix, width)
+
+                # find minimum in new boxes
+                # count row is the row where the breakout occurs
+                anchor_index = box_index
+
+                target_index = anchor_index + width
+
+                target = self.boxscale[target_index]
+                reward = target - self.boxscale[box_index]
+
+                risk1 = self.boxscale[box_index] - self.boxscale[np.where(A[:, -1] != 0)[0][0] - 1]  # row under count row
+                ratio1 = np.round(reward / risk1, 2)
+
+                risk2 = self.boxscale[box_index] - self.boxscale[min_index - 1]  # row under minimum in pattern
+                ratio2 = np.round(reward / risk2, 2)
+
+                anchor_col = column_index
+                anchor_box = self.boxscale[np.where(A[:, -1] != 0)[0][0]]  # base of breakot-column
+
+                box = self.boxscale[box_index]
+
+                counts = PointFigureChart._assign_counts_to_dict(counts, n, {
+                    'date': date, 'ts index': ts_index, 'trend': trend, 'type': sort,
+                    'column index': column_index, 'box index': box_index, 'box': box,
+                    'anchor column': anchor_col, 'anchor box': anchor_box, 'length': width,
+                    'target index': target_index, 'target': target, 'reward': reward,
+                    'risk 1': risk1, 'risk 2': risk2, 'ratio 1': ratio1, 'ratio 2': ratio2,
+                    'quality': perc_filled})
+
+            if trend == BEARISH and (pattern == 'reversal' or pattern == 'fulcrum') and width >= self.horizontal_count_min_len:
+                # slice of matrix containing the current outbreak
+                A = self.matrix[:, column_index - width + 1:column_index + 1]
+                B = np.sum(np.abs(A), 1)
+                max_index = np.where(B != 0)[0][-1]
+
+                count_matrix = self.matrix[box_index + 1:max_index + 1, column_index - width + 1:column_index + 1]
+
+                perc_filled = PointFigureChart.count_percent_filled(count_matrix, width)
+
+                # find minimum in new boxes
+                anchor_index = np.where(A[:, -1] != 0)[0][-1].astype(int)
+
+                target_index = anchor_index - width
+
+                if target_index < 0:
+                    target_index = 0
+
+                target = self.boxscale[target_index]
+                reward = self.boxscale[box_index] - target
+
+                risk1 = self.boxscale[np.where(A[:, -1] != 0)[0][-1] + 1] - self.boxscale[box_index]  ##ist das richtig?
+                ratio1 = np.round(reward / risk1, 2)
+
+                risk2 = self.boxscale[max_index + 1] - self.boxscale[box_index]
+                ratio2 = np.round(reward / risk2, 2)
+
+                anchor_col = column_index
+                anchor_box = self.boxscale[anchor_index]
+
+                box = self.boxscale[box_index]
+
+                counts = PointFigureChart._assign_counts_to_dict(counts, n, {
+                    'date': date, 'ts index': ts_index, 'trend': trend, 'type': sort,
+                    'column index': column_index, 'box index': box_index, 'box': box,
+                    'anchor column': anchor_col, 'anchor box': anchor_box, 'length': width,
+                    'target index': target_index, 'target': target, 'reward': reward,
+                    'risk 1': risk1, 'risk 2': risk2, 'ratio 1': ratio1, 'ratio 2': ratio2,
+                    'quality': perc_filled})
+
+            n = n + 1
+
+        return counts
+
+    def get_counts(self):
+
+        if not self.breakouts:
+            self.get_breakouts()
+
+        breakouts = self.breakouts
+
+        keys = ['date', 'ts index','column index', 'box index', 'box', 'trend', 'type', 'length', 'anchor column',
+                'anchor box', 'target index', 'target', 'reward', 'risk 1', 'risk 2', 'ratio 1', 'ratio 2', 'quality']
+
+        counts = {}
+
+        for key in keys:
+
+            counts[key] = np.zeros(2 * np.size(breakouts['column index']))  # double the length
+
+            if key == 'column' or key == 'row' or key == 'length' or key == 'anchor column':# or key == 'anchor box':
+
+                counts[key] = counts[key].astype(int)
+
+            elif key == 'column index' or key == 'box index' or key == 'target index' or key == 'ts index':
+
+                counts[key] = counts[key].astype(int)
+
+            elif key == 'trend' or key == 'type':
+
+                counts[key][:] = np.nan
+                counts[key] = counts[key].astype(str)
+
+            elif key == 'target' or key == 'reward' or key == 'risk 1' or key == 'risk 2' or key == 'ratio 1' or key == 'ratio 2' or key == 'quality':
+
+                counts[key][:] = np.nan
+
+            # check for format of date. If no dates is given format to int for indices of time series.
+            if isinstance(self.ts['date'][0], np.datetime64):
+                counts['date'] = counts['date'].astype(f'''datetime64[{self.time_step}]''')
+            elif isinstance(self.ts['date'][0], str):
+                counts['date'] = counts['date'].astype(f'''datetime64[{self.time_step}]''')
+            else:
+                counts['date'] = counts['date'].astype(int)
+
+        # call functions to find counts
+        if self.reversal > 1:
+            counts = self.counts_reversal_greater_1(counts)
+
+        elif self.reversal == 1:
+            counts = self.counts_reversal_equals_1(counts)
+
+        # delete NaNs
+        x = np.argwhere(np.isnan(counts['reward']))
+
+        temp_counts = {}
+        for key in keys:
+            temp_counts[key] = np.delete(counts[key], x)
+
+        counts = temp_counts
+
+        # delete multiple entries
+
+        a = np.where(counts['length'][:-1] == counts['length'][1:])[0]
+        b = np.where(counts['column index'][:-1] == counts['column index'][1:])[0]
+        c = np.where(counts['box index'][:-1] == counts['box index'][1:])[0]
+
+        z = np.intersect1d(np.intersect1d(a, b), c)
+
+        temp_counts = {}
+        for key in keys:
+            temp_counts[key] = np.delete(counts[key], z)
+        counts = temp_counts
+
+        self.counts = counts
+
+        return counts
 
     def _get_midpoints(self):
         """
@@ -2066,6 +2562,22 @@ class PointFigureChart:
 
         return psar
 
+    def volume_at_price(self, label='VAP'):
+
+        if 'volume' not in self.ts:
+            raise ValueError("timeseries does not contain 'volume'")
+
+        nrows = np.size(self.matrix, 0)
+        vap = np.zeros(nrows)
+
+        rows, cols = np.where(self.matrix != 0)
+        if rows.size > 0:
+            ts_indices = self.action_index_matrix[rows, cols]
+            np.add.at(vap, rows, self.ts['volume'][ts_indices])
+
+        self.vap[label] = vap
+        return vap
+
     def next_simple_signal(self):
 
         next_buy = np.nan
@@ -2275,6 +2787,31 @@ class PointFigureChart:
         self.plot_indicator = plot_indicator
         self.cut2indicator_length = indicator_cut_length
 
+    @staticmethod
+    def _format_price_labels(tick_values, all_values):
+        max_val = np.nanmax(np.abs(all_values))
+        unique_sorted = np.sort(np.unique(all_values[~np.isnan(all_values)]))
+
+        if len(unique_sorted) > 1:
+            step = np.min(np.diff(unique_sorted))
+        else:
+            step = unique_sorted[0] if len(unique_sorted) > 0 else 1
+
+        if max_val >= 1000:
+            decimals = 0
+        elif step >= 1:
+            decimals = 0
+        elif step >= 0.1:
+            decimals = 1
+        elif step >= 0.01:
+            decimals = 2
+        elif step >= 0.001:
+            decimals = 3
+        else:
+            decimals = 4
+
+        return [f"{v:.{decimals}f}" for v in tick_values]
+
     def _set_margins(self):
         """
         Sets the margins for th eplot figure based on the length of the x- and y-ticks
@@ -2298,7 +2835,7 @@ class PointFigureChart:
 
         if self.left_axis is True or self.right_axis is True:
             y_ticks = np.arange(0, np.shape(self.plot_matrix)[0], 1)
-            y_ticklabels = self.plot_boxscale[y_ticks].astype('str')
+            y_ticklabels = self._format_price_labels(self.plot_boxscale[y_ticks], self.plot_boxscale)
             max_y_tick_length = np.max(list(map(len, y_ticklabels)))
 
         if self.margin_left is None:
@@ -2446,6 +2983,35 @@ class PointFigureChart:
 
         self.matrix_top_cut_index = np.nonzero(np.sum(np.abs(self.matrix), 1))[0][-1] + 4
 
+        # different cut_off_indices are needed if price targets are plotted
+        if self.show_counts is True:
+
+            if self.counts is None:
+                self.counts = self.get_counts()
+
+            # check maximum from bullish signals
+            if any(self.counts['trend'] == '1'):
+                loc = np.where(self.counts['trend'] == '1')[0]
+                top_cut_index = int(np.max(self.counts['target index'][loc])) + 4
+            else:
+                top_cut_index = self.matrix_top_cut_index
+
+            if top_cut_index >= self.matrix_top_cut_index:
+                self.matrix_top_cut_index = top_cut_index
+
+            # check minimum from bearish signals
+            if any(self.counts['trend'] == '-1'):
+                loc = np.where(self.counts['trend'] == '-1')[0]
+                bottom_cut_index = int(np.min(self.counts['target index'][loc])) - 3
+                if bottom_cut_index < 0:
+                    bottom_cut_index = 0
+            else:
+                bottom_cut_index = self.matrix_bottom_cut_index
+
+            if bottom_cut_index <= self.matrix_bottom_cut_index:
+                self.matrix_bottom_cut_index = bottom_cut_index
+
+
         self.plot_matrix = self.plot_matrix[self.matrix_bottom_cut_index: self.matrix_top_cut_index, :]
         self.plot_boxscale = self.boxscale[self.matrix_bottom_cut_index: self.matrix_top_cut_index]
 
@@ -2479,7 +3045,8 @@ class PointFigureChart:
 
         # prepare y-ticks
         self.plot_y_ticks = np.arange(0, np.shape(self.plot_matrix)[0], self.y_label_step)
-        self.plot_y_ticklabels = self.plot_boxscale[self.plot_y_ticks]
+        self.plot_y_ticklabels = self._format_price_labels(
+            self.plot_boxscale[self.plot_y_ticks], self.plot_boxscale)
 
         # prepare x-ticks
         if self.column_labels is not None:
@@ -2528,7 +3095,7 @@ class PointFigureChart:
 
         self.ax2.set_ylim(bottom=-0.5, top=np.shape(self.plot_matrix)[0] - 0.5)
 
-        # third axis is to allow y-ticks with labels on the ight of the chart
+        # third axis is to allow y-ticks with labels on the right of the chart
         self.ax3 = self.ax2.twinx()
         self.ax3.set_xticks([])
 
@@ -2669,6 +3236,71 @@ class PointFigureChart:
                 x2 = x1 - width
                 self.ax2.plot((x1, x2), (y, y), color=self.bearish_breakout_color, lw=self.marker_linewidth)
 
+    def _plot_counts(self):
+        """
+        Plots counts to the PointFigureChart figure
+        """
+        # exit if there are no counts
+        if not any(self.counts['target']):
+            return
+
+        minimum = np.min(self.counts['target'])
+        maximum = np.max(self.counts['target'])
+
+        # this part is maybe obsolete
+        scaling = self.scaling
+        increment = self.boxsize
+
+        offset = self.matrix_bottom_cut_index
+        up_color = 'blue'
+        down_color = 'red'
+
+        for n in range(0, np.size(self.counts['column index'])):
+
+            if self.counts['trend'][n] == '1' and self.counts['type'][n][0:3] == 'hor':
+                x2 = self.counts['column index'][n]
+                x1 = self.counts['column index'][n] - self.counts['length'][n] + 2 # before + 1
+
+                y1 = self.counts['target index'][n] - offset
+                y2 = self.counts['box index'][n] - offset
+
+                plt.plot((x1, x2), (y1, y1), color=up_color, lw=1)
+
+                plt.plot((x1, x1), (y1 + 0.15, y2 - 0.5), color=up_color, lw=1)
+                plt.plot((x2, x2), (y1 + 0.15, y2 - 0.5), color=up_color, lw=1)
+
+            elif self.counts['trend'][n] == '-1' and self.counts['type'][n][0:3] == 'hor':
+
+                x2 = self.counts['column index'][n]
+                x1 = self.counts['column index'][n] - self.counts['length'][n] + 2 # before + 1
+
+                y1 = self.counts['target index'][n] - offset
+                y2 = self.counts['box index'][n] - offset
+
+                plt.plot((x1, x2), (y1, y1), color=down_color, lw=1)
+
+                plt.plot((x1, x1), (y1 - 0.15, y2 + 0.5), color=down_color, lw=1)
+                plt.plot((x2, x2), (y1 - 0.15, y2 + 0.5), color=down_color, lw=1)
+
+            elif self.counts['trend'][n] == '1' and self.counts['type'][n][0:3] == 'ver':
+
+                x1 = self.counts['anchor column'][n]
+
+                y1 = self.counts['box index'][n] - 0.5 - offset
+                y2 = np.where(self.plot_boxscale == self.counts['target'][n])[0][0]
+
+                plt.plot((x1 + 0.5, x1 + 0.5), (y1, y2), color=up_color, lw=1)
+                plt.plot((x1 + 0.375, x1 + 0.625), (y2, y2), color=up_color, lw=1)
+
+            elif self.counts['trend'][n] == '-1' and self.counts['type'][n][0:3] == 'ver':
+
+                x1 = self.counts['anchor column'][n]
+                y1 = self.counts['box index'][n] + 0.5 - offset
+                y2 = np.where(self.plot_boxscale == self.counts['target'][n])[0][0]
+
+                plt.plot((x1 + 0.5, x1 + 0.5), (y1, y2), color=down_color, lw=1)
+                plt.plot((x1 + 0.375, x1 + 0.625), (y2, y2), color=down_color, lw=1)
+
     def _get_indicator_keys(self):
 
         indicator_keys = []
@@ -2765,6 +3397,27 @@ class PointFigureChart:
 
             self.legend_entries = legend_entries
 
+    def _plot_volume_at_price(self):
+
+        ncols = np.shape(self.plot_matrix)[1] + self.add_empty_columns
+        max_bar_width = 0.3 * ncols
+
+        if self.legend_entries is None:
+            self.legend_entries = []
+
+        for label, vap in self.vap.items():
+            vap_plot = vap[self.matrix_bottom_cut_index:self.matrix_top_cut_index]
+            vap_max = np.nanmax(vap_plot)
+            if vap_max == 0:
+                continue
+            vap_norm = vap_plot / vap_max * max_bar_width
+            y = np.arange(len(vap_plot))
+            self.ax2.barh(y, vap_norm, height=1.0, left=0,
+                          color='gray', alpha=0.3, align='center', zorder=0)
+            legend_symbol = Line2D([], [], color='gray', marker='s', linestyle='None',
+                                   markeredgewidth=0, markersize=8, alpha=0.5, label=label)
+            self.legend_entries.append(legend_symbol)
+
     def _assemble_plot_chart(self):
         self._prepare_variables_for_plotting()
         self._create_figure_and_axis()
@@ -2780,6 +3433,10 @@ class PointFigureChart:
         # plot breakouts
         if self.show_breakouts is True:
             self._plot_breakouts()
+
+        # plot counts
+        if self.show_counts is True:
+            self._plot_counts()
 
         # plot trendlines
         # check if  trendlines are there
@@ -2933,12 +3590,13 @@ if __name__ == '__main__':
 
     # del data['date']
 
-    pnf = PointFigureChart(ts=data, method='h/l', reversal=2, boxsize=2, scaling='log', title='^SPX')
+    pnf = PointFigureChart(ts=data, method='cl', reversal=1, boxsize=100, scaling='abs', title='^SPX')
     pnf.get_trendlines(length=4, mode='weak')
     pnf.show_trendlines = 'external'
     pnf.bollinger(5, 2)
     pnf.donchian(8, 2)
     pnf.psar(0.02, 0.2)
+    pnf.volume_at_price()
     # pnf.show_breakouts = True
     pnf.show()
     # print(pnf.breakouts['ts index'])
