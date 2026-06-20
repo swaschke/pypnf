@@ -4,7 +4,7 @@
 # A Package for Point and Figure Charting
 # https://github.com/swaschke/pypnf
 #
-# Copyright (C) 2021  Stefan Waschke
+# Copyright (C) 2026  Stefan Waschke
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -3597,6 +3597,8 @@ if __name__ == '__main__':
     pnf.donchian(8, 2)
     pnf.psar(0.02, 0.2)
     pnf.volume_at_price()
+    #pnf.show_counts = True
+    #pnf.get_counts()
     # pnf.show_breakouts = True
     pnf.show()
     # print(pnf.breakouts['ts index'])
